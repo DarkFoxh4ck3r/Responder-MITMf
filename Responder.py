@@ -16,40 +16,59 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys,struct,SocketServer,re,optparse,socket,thread,Fingerprint,random,os,ConfigParser,BaseHTTPServer, select,urlparse,zlib, string, time
 from SocketServer import TCPServer, UDPServer, ThreadingMixIn, StreamRequestHandler, BaseRequestHandler,BaseServer
 from Fingerprint import RunSmbFinger,OsNameClientVersion
 from odict import OrderedDict
 from socket import inet_aton
 from random import randrange
 
+import sys
+import struct
+import SocketServer
+import re
+import argparse
+import socket
+import threading
+import Fingerprint
+import random
+import os
+import ConfigParser
+import BaseHTTPServer
+import select
+import urlparse
+import zlib
+import string
+import time
+
 VERSION = 'Responder 2.1.2'
-parser = optparse.OptionParser(usage='python %prog -i 10.20.30.40 -w -r -f\nor:\npython %prog -i 10.20.30.40 -wrf', version = VERSION,
-                               prog=sys.argv[0],
-                               )
-parser.add_option('-A','--analyze', action="store_true", help="Analyze mode. This option allows you to see NBT-NS, BROWSER, LLMNR requests from which workstation to which workstation without poisoning anything.", dest="Analyse")
 
-parser.add_option('-i','--ip', action="store", help="The ip address to redirect the traffic to. (usually yours)", metavar="10.20.30.40",dest="OURIP")
+parser = argparse.ArgumentParser(usage ='python Responder.py -i 10.20.30.40 -w -r -f\nor: python Responder.py -i 10.20.30.40 -wrf', 
+                                 version = VERSION,
+                                 prog = sys.argv[0],)
 
-parser.add_option('-I','--interface', action="store", help="Network interface to use", metavar="eth0", dest="INTERFACE", default="Not set")
+parser.add_argument('-A','--analyze', action="store_true", help="Analyze mode. This option allows you to see NBT-NS, BROWSER, LLMNR requests from which workstation to which workstation without poisoning anything.", dest="Analyse")
 
-parser.add_option('-b', '--basic',action="store_true", help="Set this if you want to return a Basic HTTP authentication. If not set, an NTLM authentication will be returned.", dest="Basic", default=False)
+parser.add_argument('-i','--ip', required=True, action="store", help="The ip address to redirect the traffic to. (usually yours)", metavar="10.20.30.40",dest="OURIP")
 
-parser.add_option('-r', '--wredir',action="store_true", help="Set this to enable answers for netbios wredir suffix queries. Answering to wredir will likely break stuff on the network (like classics 'nbns spoofer' would). Default value is therefore set to False", dest="Wredirect", default=False)
+parser.add_argument('-I','--interface', action="store", help="Network interface to use", metavar="eth0", dest="INTERFACE", default="Not set")
 
-parser.add_option('-d', '--NBTNSdomain',action="store_true", help="Set this to enable answers for netbios domain suffix queries. Answering to domain suffixes will likely break stuff on the network (like a classic 'nbns spoofer' would). Default value is therefore set to False",dest="NBTNSDomain", default=False)
+parser.add_argument('-b', '--basic',action="store_true", help="Set this if you want to return a Basic HTTP authentication. If not set, an NTLM authentication will be returned.", dest="Basic", default=False)
 
-parser.add_option('-f','--fingerprint', action="store_true", dest="Finger", help = "This option allows you to fingerprint a host that issued an NBT-NS or LLMNR query.", default=False)
+parser.add_argument('-r', '--wredir',action="store_true", help="Set this to enable answers for netbios wredir suffix queries. Answering to wredir will likely break stuff on the network (like classics 'nbns spoofer' would). Default value is therefore set to False", dest="Wredirect", default=False)
 
-parser.add_option('-w','--wpad', action="store_true", dest="WPAD_On_Off", help = "Set this to start the WPAD rogue proxy server. Default value is False", default=False)
+parser.add_argument('-d', '--NBTNSdomain',action="store_true", help="Set this to enable answers for netbios domain suffix queries. Answering to domain suffixes will likely break stuff on the network (like a classic 'nbns spoofer' would). Default value is therefore set to False",dest="NBTNSDomain", default=False)
 
-parser.add_option('-F','--ForceWpadAuth', action="store_true", dest="Force_WPAD_Auth", help = "Set this if you want to force NTLM/Basic authentication on wpad.dat file retrieval. This might cause a login prompt in some specific cases. Therefore, default value is False",default=False)
+parser.add_argument('-f','--fingerprint', action="store_true", dest="Finger", help = "This option allows you to fingerprint a host that issued an NBT-NS or LLMNR query.", default=False)
 
-parser.add_option('--lm',action="store_true", help="Set this if you want to force LM hashing downgrade for Windows XP/2003 and earlier. Default value is False", dest="LM_On_Off", default=False)
+parser.add_argument('-w','--wpad', action="store_true", dest="WPAD_On_Off", help = "Set this to start the WPAD rogue proxy server. Default value is False", default=False)
 
-parser.add_option('-v',action="store_true", help="More verbose",dest="Verbose")
+parser.add_argument('-F','--ForceWpadAuth', action="store_true", dest="Force_WPAD_Auth", help = "Set this if you want to force NTLM/Basic authentication on wpad.dat file retrieval. This might cause a login prompt in some specific cases. Therefore, default value is False",default=False)
 
-options, args = parser.parse_args()
+parser.add_argument('--lm',action="store_true", help="Set this if you want to force LM hashing downgrade for Windows XP/2003 and earlier. Default value is False", dest="LM_On_Off", default=False)
+
+parser.add_argument('--verbose',action="store_true", help="More verbose",dest="Verbose")
+
+options = parser.parse_args()
 
 if options.OURIP is None:
     print "\n\033[1m\033[31m-i mandatory option is missing\033[0m\n"
@@ -2355,21 +2374,30 @@ class IMAP(BaseRequestHandler):
 #Function name self-explanatory
 def Is_HTTP_On(on_off):
     if on_off == "ON":
-        return thread.start_new(serve_thread_tcp,('', 80,HTTP))
+        t = threading.Thread(name="HTTP", target=serve_thread_tcp, args=('', 80,HTTP))
+        t.setDaemon(True)
+        t.start()
+        return t
     if on_off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_HTTPS_On(SSL_On_Off):
     if SSL_On_Off == "ON":
-        return thread.start_new(serve_thread_SSL,('', 443,DoSSL))
+        t = threading.Thread(name="SSL", target=serve_thread_SSL, args=('', 443,DoSSL))        
+        t.setDaemon(True)
+        t.start()
+        return t
     if SSL_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_WPAD_On(on_off):
     if on_off == True:
-        return thread.start_new(serve_thread_tcp,('', 3141,ProxyHandler))
+        t = threading.Thread(name="WPAD", target=serve_thread_tcp, args=('', 3141,ProxyHandler))
+        t.setDaemon(True)
+        t.start()
+        return t
     if on_off == False:
         return False
 
@@ -2377,65 +2405,116 @@ def Is_WPAD_On(on_off):
 def Is_SMB_On(SMB_On_Off):
     if SMB_On_Off == "ON":
         if LM_On_Off == True:
-            return thread.start_new(serve_thread_tcp, ('', 445,SMB1LM)),thread.start_new(serve_thread_tcp,('', 139,SMB1LM))
+            t1  = threading.Thread(name="SMB1LM-445", target=serve_thread_tcp, args=('', 445,SMB1LM))
+            t2 = threading.Thread(name="SMB1LM-139", target=serve_thread_tcp, args=('', 139,SMB1LM))
+            for t in [t1, t2]:
+                t.setDaemon(True)
+                t.start()
+
+            return t1, t2
+
         else:
-            return thread.start_new(serve_thread_tcp, ('', 445,SMB1)),thread.start_new(serve_thread_tcp,('', 139,SMB1))
+            t1 = threading.Thread(name="SMB1-445", target=serve_thread_tcp, args=('', 445,SMB1))
+            t2 = threading.Thread(name="SMB1-139", target=serve_thread_tcp, args=('', 139,SMB1))
+
+            for t in [t1,t2]:
+                t.setDaemon(True)
+                t.start()
+
+            return t1, t2
+
     if SMB_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_Kerberos_On(Krb_On_Off):
     if Krb_On_Off == "ON":
-        return thread.start_new(serve_thread_udp,('', 88,KerbUDP)),thread.start_new(serve_thread_tcp,('', 88, KerbTCP))
+        t1 = threading.Thread(name="KerbUDP", target=serve_thread_udp, args=('', 88,KerbUDP))
+        t2 = threading.Thread(name="KerbTCP", target=serve_thread_tcp, args=('', 88, KerbTCP))
+        for t in [t1,t2]:
+            t.setDaemon(True)
+            t.start()
+
+        return t1, t2
     if Krb_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_SQL_On(SQL_On_Off):
     if SQL_On_Off == "ON":
-        return thread.start_new(serve_thread_tcp,('', 1433,MSSQL))
+        t = threading.Thread(name="MSSQL", target=serve_thread_tcp, args=('', 1433,MSSQL))
+        t.setDaemon(True)
+        t.start()
+        return t
     if SQL_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_FTP_On(FTP_On_Off):
     if FTP_On_Off == "ON":
-        return thread.start_new(serve_thread_tcp,('', 21,FTP))
+        t = threading.Thread(name="FTP", target=serve_thread_tcp, args=('', 21,FTP))
+        t.setDaemon(True)
+        t.start()
+        return t
+
     if FTP_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_POP_On(POP_On_Off):
     if POP_On_Off == "ON":
-        return thread.start_new(serve_thread_tcp,('', 110,POP))
+        t = threading.Thread(name="POP", target=serve_thread_tcp, args=('', 110,POP))
+        t.setDaemon(True)
+        t.start()
+        return t
     if POP_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_LDAP_On(LDAP_On_Off):
     if LDAP_On_Off == "ON":
-        return thread.start_new(serve_thread_tcp,('', 389,LDAP))
+        t = threading.Thread(name="LDAP", target=serve_thread_tcp, args=('', 389,LDAP))
+        t.setDaemon(True)
+        t.start()
+        return t
     if LDAP_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_SMTP_On(SMTP_On_Off):
     if SMTP_On_Off == "ON":
-        return thread.start_new(serve_thread_tcp,('', 25,ESMTP)),thread.start_new(serve_thread_tcp,('', 587,ESMTP))
+        t1 = threading.Thread(name="ESMTP-25", target=serve_thread_tcp, args=('', 25,ESMTP))
+        t2 = threading.Thread(name="ESMTP-587", target=serve_thread_tcp, args=('', 587,ESMTP))
+        
+        for t in [t1, t2]:
+            t.setDaemon(True)
+            t.start()
+
+        return t1,t2
+
     if SMTP_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_IMAP_On(IMAP_On_Off):
     if IMAP_On_Off == "ON":
-        return thread.start_new(serve_thread_tcp,('', 143,IMAP))
+        t = threading.Thread(name="IMAP", target=serve_thread_tcp, args=('', 143,IMAP))
+        t.setDaemon(True)
+        t.start()
+        return t
     if IMAP_On_Off == "OFF":
         return False
 
 #Function name self-explanatory
 def Is_DNS_On(DNS_On_Off):
     if DNS_On_Off == "ON":
-        return thread.start_new(serve_thread_udp,('', 53,DNS)),thread.start_new(serve_thread_tcp,('', 53,DNSTCP))
+        t1 = threading.Thread(name="DNS", target=serve_thread_udp, args=('', 53,DNS))
+        t2 = threading.Thread(name="DNSTCP", target=serve_thread_udp, args=('', 53,DNSTCP))
+        for t in [t1, t2]:
+            t.setDaemon(True)
+            t.start()
+
+        return t1,t2
     if DNS_On_Off == "OFF":
         return False
 
@@ -2559,12 +2638,17 @@ def main():
         Is_SMTP_On(SMTP_On_Off)
         Is_IMAP_On(IMAP_On_Off)
         #Browser listener loaded by default
-        thread.start_new(serve_thread_udp,('', 138,Browser))
+        t1 = threading.Thread(name="Browser", target=serve_thread_udp, args=('', 138, Browser))
         ## Poisoner loaded by default, it's the purpose of this tool...
-        thread.start_new(serve_thread_udp_MDNS,('', 5353,MDNS))   #MDNS
-        thread.start_new(serve_thread_udp,('', 88, KerbUDP))
-        thread.start_new(serve_thread_udp,('', 137,NB))           #NBNS
-        thread.start_new(serve_thread_udp_LLMNR,('', 5355, LLMNR)) #LLMNR
+        t2 = threading.Thread(name="MDNS", target=serve_thread_udp_MDNS, args=('', 5353, MDNS)) #MDNS
+        t3 = threading.Thread(name="KerbUDP", target=serve_thread_udp, args=('', 88, KerbUDP)) 
+        t4 = threading.Thread(name="NBNS", target=serve_thread_udp, args=('', 137,NB)) #NBNS
+        t5 = threading.Thread(name="LLMNR", target=serve_thread_udp_LLMNR, args=('', 5355, LLMNR)) #LLMNR
+
+        for t in [t1, t2, t3, t4, t5]:
+            t.setDaemon(True)
+            t.start()
+
         while num_thrd > 0:
             time.sleep(1)
     except KeyboardInterrupt:
