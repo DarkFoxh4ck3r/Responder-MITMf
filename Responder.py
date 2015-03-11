@@ -43,12 +43,11 @@ import time
 VERSION = 'Responder 2.1.2'
 
 parser = argparse.ArgumentParser(usage ='python Responder.py -i 10.20.30.40 -w -r -f\nor: python Responder.py -i 10.20.30.40 -wrf', 
-                                 version = VERSION,
-                                 prog = sys.argv[0],)
+                                 version = VERSION,)
 
 parser.add_argument('-A','--analyze', action="store_true", help="Analyze mode. This option allows you to see NBT-NS, BROWSER, LLMNR requests from which workstation to which workstation without poisoning anything.", dest="Analyse")
 
-parser.add_argument('-i','--ip', required=True, action="store", help="The ip address to redirect the traffic to. (usually yours)", metavar="10.20.30.40",dest="OURIP")
+parser.add_argument('-i','--ip', action="store", help="The ip address to redirect the traffic to. (usually yours)", metavar="10.20.30.40",dest="OURIP")
 
 parser.add_argument('-I','--interface', action="store", help="Network interface to use", metavar="eth0", dest="INTERFACE", default="Not set")
 
