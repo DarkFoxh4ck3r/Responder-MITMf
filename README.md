@@ -118,14 +118,14 @@ USAGE
 First of all, please take a look at Responder.conf and set it for your needs.
 Running this tool:
 
-- ./Responder.py [options]
+- ```./Responder.py [options]```
 
 Usage Example:
 
-./Responder.py -i 10.20.30.40 -w -r -f
+- ```./Responder.py -i 10.20.30.40 -w -r -f```
 
 or:
-
+```
 python Responder.py -i 10.20.30.40 -wrf
 
 Options List:
@@ -173,7 +173,7 @@ Options List:
 
   -v                    More verbose
 
-
+```
 For more information read these posts: 
 http://blog.spiderlabs.com/2012/10/introducing-responder-10.html
 http://blog.spiderlabs.com/2013/01/owning-windows-networks-with-responder-17.html
