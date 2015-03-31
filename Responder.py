@@ -2582,7 +2582,7 @@ def start_responder(options, ip_address, config):
     start_message += "|  |_ LDAP Server: %s\n" % LDAP_On_Off
     start_message += "|  |_ FingerPrint hosts: %s\n" % Finger_On_Off
     start_message += "|  |_ Serving Executable via HTTP&WPAD: %s\n" % Exe_On_Off
-    start_message += "|  |_ Always Serving a Specific File via HTTP&WPAD: %s\n" % Exec_Mode_On_Off
+    start_message += "|  |_ Always Serving a Specific File via HTTP&WPAD: %s" % Exec_Mode_On_Off
     
     print start_message
 
