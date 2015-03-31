@@ -2492,7 +2492,7 @@ def serve_thread_SSL(host, port, handler):
     except Exception, e:
         print "Error starting TCP server on port %s: %s:" % (str(port),str(e))
 
-def start_responder(options, ip_address, config):
+def start_responder(options, config):
 
     global VERSION; VERSION = '2.1.2'
 
@@ -2539,32 +2539,36 @@ def start_responder(options, ip_address, config):
         Challenge += NumChal[i:i+2].decode("hex")
 
     #Cli options.
-    global OURIP; OURIP = ip_address
+    global OURIP; OURIP = options.ip_address
     global LM_On_Off; LM_On_Off = options.LM_On_Off
     global WPAD_On_Off; WPAD_On_Off = options.WPAD_On_Off
     global Wredirect; Wredirect = options.Wredirect
     global NBTNSDomain; NBTNSDomain = options.NBTNSDomain
     global Basic; Basic = options.Basic
     global Finger_On_Off; Finger_On_Off = options.Finger
-    global INTERFACE; INTERFACE = "Not set"
-    global Verbose; Verbose = options.Verbose
+    global Verbose; Verbose = True
     global Force_WPAD_Auth; Force_WPAD_Auth = options.Force_WPAD_Auth
     global AnalyzeMode; AnalyzeMode = options.Analyse
-
-    global ResponderPATH; ResponderPATH = "./logs/responder"
+    global INTERFACE; INTERFACE = "Not set"
     global BIND_TO_Interface; BIND_TO_Interface = "ALL"
 
+    global ResponderPATH; ResponderPATH = "./logs/responder"
+
+    #logging.basicConfig(filename=str(os.path.join(ResponderPATH,SessionLog)),level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    
     global Log2Filename; Log2Filename = "./logs/responder/LLMNR-NBT-NS.log"
+    
     global logger2; logger2 = logging.getLogger('LLMNR/NBT-NS')
     logger2.addHandler(logging.FileHandler(Log2Filename,'a'))
     
     global AnalyzeFilename; AnalyzeFilename = "./logs/responder/Analyze-LLMNR-NBT-NS.log"
+    
     global logger3; logger3 = logging.getLogger('Analyze LLMNR/NBT-NS')
     logger3.addHandler(logging.FileHandler(AnalyzeFilename,'a'))
 
     AnalyzeICMPRedirect()
 
-    start_message = "|  |_ Responder will redirect requests to: %s\n" % ip_address
+    start_message = "|  |_ Responder will redirect requests to: %s\n" % options.ip_address
     start_message += "|  |_ Challenge set: %s\n" % NumChal
     start_message += "|  |_ WPAD Proxy Server: %s\n" % WPAD_On_Off
     #start_message += "|  |_ WPAD script loaded: %s\n" % WPAD_Script
