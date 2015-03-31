@@ -2453,22 +2453,22 @@ def serve_thread_udp(host, port, handler):
         else:
             server = ThreadingUDPServer((host, port), handler)
             server.serve_forever()
-    except:
-        print "Error starting UDP server on port " + str(port) + ". Check that you have the necessary permissions (i.e. root), no other servers are running and the correct network interface is set in Responder.conf."
+    except Exception, e:
+        print "Error starting UDP server on port %s: %s:" % (str(port),str(e))
 
 def serve_thread_udp_MDNS(host, port, handler):
     try:
         server = ThreadingUDPMDNSServer((host, port), handler)
         server.serve_forever()
-    except:
-        print "Error starting UDP server on port " + str(port) + ". Check that you have the necessary permissions (i.e. root), no other servers are running and the correct network interface is set in Responder.conf."
+    except Exception, e:
+        print "Error starting UDP server on port %s: %s:" % (str(port),str(e))
 
 def serve_thread_udp_LLMNR(host, port, handler):
     try:
         server = ThreadingUDPLLMNRServer((host, port), handler)
         server.serve_forever()
-    except:
-        print "Error starting UDP server on port " + str(port) + ". Check that you have the necessary permissions (i.e. root), no other servers are running and the correct network interface is set in Responder.conf."
+    except Exception, e:
+        print "Error starting UDP server on port %s: %s:" % (str(port),str(e))
 
 def serve_thread_tcp(host, port, handler):
     try:
@@ -2479,8 +2479,8 @@ def serve_thread_tcp(host, port, handler):
         else:
             server = ThreadingTCPServer((host, port), handler)
             server.serve_forever()
-    except:
-        print "Error starting TCP server on port " + str(port) + ". Check that you have the necessary permissions (i.e. root), no other servers are running and the correct network interface is set in Responder.conf."
+    except Exception, e:
+        print "Error starting TCP server on port %s: %s:" % (str(port),str(e))
 
 def serve_thread_SSL(host, port, handler):
     try:
@@ -2491,8 +2491,8 @@ def serve_thread_SSL(host, port, handler):
         else:
             server = SSlSock((host, port), handler)
             server.serve_forever()
-    except:
-        print "Error starting TCP server on port " + str(port) + ". Check that you have the necessary permissions (i.e. root), no other servers are running and the correct network interface is set in Responder.conf."
+    except Exception, e:
+        print "Error starting TCP server on port %s: %s:" % (str(port),str(e))
 
 def start_responder(options, ip_address, config):
 
@@ -2615,4 +2615,3 @@ def start_responder(options, ip_address, config):
 
     except KeyboardInterrupt:
         exit()
-
