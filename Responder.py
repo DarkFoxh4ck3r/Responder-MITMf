@@ -1187,8 +1187,6 @@ def AnalyzeICMPRedirect():
     if Analyze(AnalyzeMode) and INTERFACE != 'Not set':
         IsICMPRedirectPlausible(FindLocalIP(INTERFACE))
 
-AnalyzeICMPRedirect()
-
 # LLMNR Server class.
 class LLMNR(BaseRequestHandler):
 
