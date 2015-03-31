@@ -1973,10 +1973,8 @@ class SSlSock(ThreadingMixIn, TCPServer):
     def __init__(self, server_address, RequestHandlerClass):
         BaseServer.__init__(self, server_address, RequestHandlerClass)
         ctx = SSL.Context(SSL.SSLv3_METHOD)
-        cert = os.path.join(ResponderPATH,config.get('HTTPS Server', 'cert'))
-        key =  os.path.join(ResponderPATH,config.get('HTTPS Server', 'key'))
-        ctx.use_privatekey_file(key)
-        ctx.use_certificate_file(cert)
+        ctx.use_privatekey_file(SSLkey)
+        ctx.use_certificate_file(SSLcert)
         self.socket = SSL.Connection(ctx, socket.socket(self.address_family, self.socket_type))
         self.server_bind()
         self.server_activate()
