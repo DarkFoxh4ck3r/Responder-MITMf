@@ -25,6 +25,7 @@ from random import randrange
 import sys
 import struct
 import SocketServer
+import logging
 import re
 import socket
 import threading
@@ -60,26 +61,6 @@ def Analyze(AnalyzeMode):
         return True
     else:
         return False
-
-#Logger
-CommandLine = str(sys.argv)
-import logging
-logging.basicConfig(filename=str(os.path.join(ResponderPATH,SessionLog)),level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-StartMessage = 'Responder Started\nCommand line args:%s' %(CommandLine)
-logging.warning(StartMessage)
-
-Log2Filename = str(os.path.join(ResponderPATH,"LLMNR-NBT-NS.log"))
-logger2 = logging.getLogger('LLMNR/NBT-NS')
-logger2.addHandler(logging.FileHandler(Log2Filename,'w'))
-
-AnalyzeFilename = str(os.path.join(ResponderPATH,"Analyze-LLMNR-NBT-NS.log"))
-logger3 = logging.getLogger('Analyze LLMNR/NBT-NS')
-logger3.addHandler(logging.FileHandler(AnalyzeFilename,'a'))
-
-def Show_Help(ExtraHelpData):
-    help = "NBT Name Service/LLMNR Responder 2.0.\nPlease send bugs/comments to: lgaffie@trustwave.com\nTo kill this script hit CRTL-C\n\n"
-    help+= ExtraHelpData
-    print help
 
 #Function used to write captured hashs to a file.
 def WriteData(outfile,data, user):
@@ -2574,8 +2555,16 @@ def start_responder(options, ip_address, config):
     global Force_WPAD_Auth; Force_WPAD_Auth = options.Force_WPAD_Auth
     global AnalyzeMode; AnalyzeMode = options.Analyse
 
-    global ResponderPATH; ResponderPATH = "./logs/"
+    global ResponderPATH; ResponderPATH = "./logs/responder"
     global BIND_TO_Interface; BIND_TO_Interface = "ALL"
+
+    Log2Filename = "./logs/responder/LLMNR-NBT-NS.log"
+    logger2 = logging.getLogger('LLMNR/NBT-NS')
+    logger2.addHandler(logging.FileHandler(Log2Filename,'a'))
+    
+    AnalyzeFilename = "./logs/responder/Analyze-LLMNR-NBT-NS.log"
+    logger3 = logging.getLogger('Analyze LLMNR/NBT-NS')
+    logger3.addHandler(logging.FileHandler(AnalyzeFilename,'a'))
 
     AnalyzeICMPRedirect()
 
