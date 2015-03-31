@@ -2554,12 +2554,12 @@ def start_responder(options, ip_address, config):
     global ResponderPATH; ResponderPATH = "./logs/responder"
     global BIND_TO_Interface; BIND_TO_Interface = "ALL"
 
-    Log2Filename = "./logs/responder/LLMNR-NBT-NS.log"
-    logger2 = logging.getLogger('LLMNR/NBT-NS')
+    global Log2Filename; Log2Filename = "./logs/responder/LLMNR-NBT-NS.log"
+    global logger2; logger2 = logging.getLogger('LLMNR/NBT-NS')
     logger2.addHandler(logging.FileHandler(Log2Filename,'a'))
     
-    AnalyzeFilename = "./logs/responder/Analyze-LLMNR-NBT-NS.log"
-    logger3 = logging.getLogger('Analyze LLMNR/NBT-NS')
+    global AnalyzeFilename; AnalyzeFilename = "./logs/responder/Analyze-LLMNR-NBT-NS.log"
+    global logger3; logger3 = logging.getLogger('Analyze LLMNR/NBT-NS')
     logger3.addHandler(logging.FileHandler(AnalyzeFilename,'a'))
 
     AnalyzeICMPRedirect()
@@ -2567,7 +2567,7 @@ def start_responder(options, ip_address, config):
     start_message = "|  |_ Responder will redirect requests to: %s\n" % ip_address
     start_message += "|  |_ Challenge set: %s\n" % NumChal
     start_message += "|  |_ WPAD Proxy Server: %s\n" % WPAD_On_Off
-    start_message += "|  |_ WPAD script loaded: %s\n" % WPAD_Script
+    #start_message += "|  |_ WPAD script loaded: %s\n" % WPAD_Script
     start_message += "|  |_ HTTP Server: %s\n" % On_Off
     start_message += "|  |_ HTTPS Server: %s\n" % SSL_On_Off
     start_message += "|  |_ SMB Server: %s\n" % SMB_On_Off
