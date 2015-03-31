@@ -26,7 +26,6 @@ import sys
 import struct
 import SocketServer
 import re
-import argparse
 import socket
 import threading
 import Fingerprint
@@ -39,100 +38,6 @@ import urlparse
 import zlib
 import string
 import time
-
-VERSION = 'Responder 2.1.2'
-
-parser = argparse.ArgumentParser(usage ='python Responder.py -i 10.20.30.40 -w -r -f\nor: python Responder.py -i 10.20.30.40 -wrf', 
-                                 version = VERSION,)
-
-parser.add_argument('-A','--analyze', action="store_true", help="Analyze mode. This option allows you to see NBT-NS, BROWSER, LLMNR requests from which workstation to which workstation without poisoning anything.", dest="Analyse")
-
-parser.add_argument('-i','--ip', action="store", help="The ip address to redirect the traffic to. (usually yours)", metavar="10.20.30.40",dest="OURIP")
-
-parser.add_argument('-I','--interface', action="store", help="Network interface to use", metavar="eth0", dest="INTERFACE", default="Not set")
-
-parser.add_argument('-b', '--basic',action="store_true", help="Set this if you want to return a Basic HTTP authentication. If not set, an NTLM authentication will be returned.", dest="Basic", default=False)
-
-parser.add_argument('-r', '--wredir',action="store_true", help="Set this to enable answers for netbios wredir suffix queries. Answering to wredir will likely break stuff on the network (like classics 'nbns spoofer' would). Default value is therefore set to False", dest="Wredirect", default=False)
-
-parser.add_argument('-d', '--NBTNSdomain',action="store_true", help="Set this to enable answers for netbios domain suffix queries. Answering to domain suffixes will likely break stuff on the network (like a classic 'nbns spoofer' would). Default value is therefore set to False",dest="NBTNSDomain", default=False)
-
-parser.add_argument('-f','--fingerprint', action="store_true", dest="Finger", help = "This option allows you to fingerprint a host that issued an NBT-NS or LLMNR query.", default=False)
-
-parser.add_argument('-w','--wpad', action="store_true", dest="WPAD_On_Off", help = "Set this to start the WPAD rogue proxy server. Default value is False", default=False)
-
-parser.add_argument('-F','--ForceWpadAuth', action="store_true", dest="Force_WPAD_Auth", help = "Set this if you want to force NTLM/Basic authentication on wpad.dat file retrieval. This might cause a login prompt in some specific cases. Therefore, default value is False",default=False)
-
-parser.add_argument('--lm',action="store_true", help="Set this if you want to force LM hashing downgrade for Windows XP/2003 and earlier. Default value is False", dest="LM_On_Off", default=False)
-
-parser.add_argument('--verbose',action="store_true", help="More verbose",dest="Verbose")
-
-options = parser.parse_args()
-
-if options.OURIP is None:
-    print "\n\033[1m\033[31m-i mandatory option is missing\033[0m\n"
-    parser.print_help()
-    exit(-1)
-
-ResponderPATH = os.path.dirname(__file__)
-
-#Config parsing
-config = ConfigParser.ConfigParser()
-config.read(os.path.join(ResponderPATH,'Responder.conf'))
-
-# Set some vars.
-On_Off = config.get('Responder Core', 'HTTP').upper()
-SSL_On_Off = config.get('Responder Core', 'HTTPS').upper()
-SMB_On_Off = config.get('Responder Core', 'SMB').upper()
-SQL_On_Off = config.get('Responder Core', 'SQL').upper()
-FTP_On_Off = config.get('Responder Core', 'FTP').upper()
-POP_On_Off = config.get('Responder Core', 'POP').upper()
-IMAP_On_Off = config.get('Responder Core', 'IMAP').upper()
-SMTP_On_Off = config.get('Responder Core', 'SMTP').upper()
-LDAP_On_Off = config.get('Responder Core', 'LDAP').upper()
-DNS_On_Off = config.get('Responder Core', 'DNS').upper()
-Krb_On_Off = config.get('Responder Core', 'Kerberos').upper()
-NumChal = config.get('Responder Core', 'Challenge')
-SessionLog = config.get('Responder Core', 'SessionLog')
-Exe_On_Off = config.get('HTTP Server', 'Serve-Exe').upper()
-Exec_Mode_On_Off = config.get('HTTP Server', 'Serve-Always').upper()
-FILENAME = config.get('HTTP Server', 'Filename')
-WPAD_Script = config.get('HTTP Server', 'WPADScript')
-HTMLToServe = config.get('HTTP Server', 'HTMLToServe')
-RespondTo = config.get('Responder Core', 'RespondTo').strip()
-RespondTo.split(",")
-RespondToName = config.get('Responder Core', 'RespondToName').strip()
-RespondToName.split(",")
-DontRespondTo = config.get('Responder Core', 'DontRespondTo').strip()
-DontRespondTo.split(",")
-DontRespondToName = config.get('Responder Core', 'DontRespondToName').strip()
-DontRespondToName.split(",")
-#Cli options.
-OURIP = options.OURIP
-LM_On_Off = options.LM_On_Off
-WPAD_On_Off = options.WPAD_On_Off
-Wredirect = options.Wredirect
-NBTNSDomain = options.NBTNSDomain
-Basic = options.Basic
-Finger_On_Off = options.Finger
-INTERFACE = options.INTERFACE
-Verbose = options.Verbose
-Force_WPAD_Auth = options.Force_WPAD_Auth
-AnalyzeMode = options.Analyse
-
-if HTMLToServe == None:
-    HTMLToServe = ''
-
-if INTERFACE != "Not set":
-    BIND_TO_Interface = INTERFACE
-
-if INTERFACE == "Not set":
-    BIND_TO_Interface = "ALL"
-
-if len(NumChal) is not 16:
-    print "The challenge must be exactly 16 chars long.\nExample: -c 1122334455667788\n"
-    parser.print_help()
-    exit(-1)
 
 def IsOsX():
     Os_version = sys.platform
@@ -225,17 +130,6 @@ def PrintLLMNRNBTNS(outfile,Message):
                 return True
     else:
         return True
-
-
-# Break out challenge for the hexidecimally challenged.  Also, avoid 2 different challenges by accident.
-Challenge = ""
-for i in range(0,len(NumChal),2):
-    Challenge += NumChal[i:i+2].decode("hex")
-
-Show_Help("[+]NBT-NS, LLMNR & MDNS responder started\n[+]Loading Responder.conf File..\nGlobal Parameters set:\nResponder is bound to this interface: %s\nChallenge set: %s\nWPAD Proxy Server: %s\nWPAD script loaded:  %s\nHTTP Server: %s\nHTTPS Server: %s\nSMB Server: %s\nSMB LM support: %s\nKerberos Server: %s\nSQL Server: %s\nFTP Server: %s\nIMAP Server: %s\nPOP3 Server: %s\nSMTP Server: %s\nDNS Server: %s\nLDAP Server: %s\nFingerPrint hosts: %s\nServing Executable via HTTP&WPAD: %s\nAlways Serving a Specific File via HTTP&WPAD: %s\n\n"%(BIND_TO_Interface, NumChal,WPAD_On_Off,WPAD_Script,On_Off,SSL_On_Off,SMB_On_Off,LM_On_Off,Krb_On_Off,SQL_On_Off,FTP_On_Off,IMAP_On_Off,POP_On_Off,SMTP_On_Off,DNS_On_Off,LDAP_On_Off,Finger_On_Off,Exe_On_Off,Exec_Mode_On_Off))
-
-if AnalyzeMode:
-    print '[+]Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.\n'
 
 #Packet class handling all packet generation (see odict.py).
 class Packet():
@@ -2621,9 +2515,93 @@ def serve_thread_SSL(host, port, handler):
     except:
         print "Error starting TCP server on port " + str(port) + ". Check that you have the necessary permissions (i.e. root), no other servers are running and the correct network interface is set in Responder.conf."
 
-def main():
+def start_responder(options, ip_address, config):
+
+    global VERSION; VERSION = '2.1.2'
+
+    # Set some vars.
+    global On_Off; On_Off = config['HTTP'].upper()
+    global SSL_On_Off; SSL_On_Off = config['HTTPS'].upper()
+    global SMB_On_Off; SMB_On_Off = config['SMB'].upper()
+    global SQL_On_Off; SQL_On_Off = config['SQL'].upper()
+    global FTP_On_Off; FTP_On_Off = config['FTP'].upper()
+    global POP_On_Off; POP_On_Off = config['POP'].upper()
+    global IMAP_On_Off; IMAP_On_Off = config['IMAP'].upper()
+    global SMTP_On_Off; SMTP_On_Off = config['SMTP'].upper()
+    global LDAP_On_Off; LDAP_On_Off = config['LDAP'].upper()
+    global DNS_On_Off; DNS_On_Off = config['DNS'].upper()
+    global Krb_On_Off; Krb_On_Off = config['Kerberos'].upper()
+    global NumChal; NumChal = config['Challenge']
+    global SessionLog; SessionLog = config['SessionLog']
+    global Exe_On_Off; Exe_On_Off = config['HTTP Server']['Serve-Exe'].upper()
+    global Exec_Mode_On_Off; Exec_Mode_On_Off = config['HTTP Server']['Serve-Always'].upper()
+    global FILENAME; FILENAME = config['HTTP Server']['Filename']
+    global WPAD_Script; WPAD_Script = config['HTTP Server']['WPADScript']
+    #HTMLToServe = config.get('HTTP Server', 'HTMLToServe')
+
+    global SSLcert; SSLcert = config['HTTPS Server']['cert']
+    global SSLkey; SSLkey = config['HTTPS Server']['key']
+
+    global RespondTo; RespondTo = config['RespondTo'].strip()
+    RespondTo.split(",")
+    global RespondToName; RespondToName = config['RespondToName'].strip()
+    RespondToName.split(",")
+    global DontRespondTo; DontRespondTo = config['DontRespondTo'].strip()
+    DontRespondTo.split(",")
+    global DontRespondToName; DontRespondToName = config['DontRespondToName'].strip()
+    DontRespondToName.split(",")
+
+    HTMLToServe = ''
+
+    if len(NumChal) is not 16:
+        sys.exit("[-] The challenge must be exactly 16 chars long.\nExample: -c 1122334455667788\n")
+
+    # Break out challenge for the hexidecimally challenged.  Also, avoid 2 different challenges by accident.
+    global Challange; Challenge = ""
+    for i in range(0,len(NumChal),2):
+        Challenge += NumChal[i:i+2].decode("hex")
+
+    #Cli options.
+    global OURIP; OURIP = ip_address
+    global LM_On_Off; LM_On_Off = options.LM_On_Off
+    global WPAD_On_Off; WPAD_On_Off = options.WPAD_On_Off
+    global Wredirect; Wredirect = options.Wredirect
+    global NBTNSDomain; NBTNSDomain = options.NBTNSDomain
+    global Basic; Basic = options.Basic
+    global Finger_On_Off; Finger_On_Off = options.Finger
+    global INTERFACE; INTERFACE = "Not set"
+    global Verbose; Verbose = options.Verbose
+    global Force_WPAD_Auth; Force_WPAD_Auth = options.Force_WPAD_Auth
+    global AnalyzeMode; AnalyzeMode = options.Analyse
+
+    global ResponderPATH; ResponderPATH = "./logs/"
+    global BIND_TO_Interface; BIND_TO_Interface = "ALL"
+
+    AnalyzeICMPRedirect()
+
+    start_message = "Responder will redirect requests to: %s\n" % ip_address
+    start_message += "Challenge set: %s\n" % NumChal
+    start_message += "WPAD Proxy Server: %s\n" % WPAD_On_Off
+    start_message += "WPAD script loaded: %s\n" % WPAD_Script
+    start_message += "HTTP Server: %s\n" % On_Off
+    start_message += "HTTPS Server: %s\n" % SSL_On_Off
+    start_message += "SMB Server: %s\n" % SMB_On_Off
+    start_message += "SMB LM support: %s\n" % LM_On_Off
+    start_message += "Kerberos Server: %s\n" % Krb_On_Off
+    start_message += "SQL Server: %s\n" % SQL_On_Off
+    start_message += "FTP Server: %s\n" % FTP_On_Off
+    start_message += "IMAP Server: %s\n" % IMAP_On_Off
+    start_message += "POP3 Server: %s\n" % POP_On_Off
+    start_message += "SMTP Server: %s\n" % SMTP_On_Off
+    start_message += "DNS Server: %s\n" % DNS_On_Off
+    start_message += "LDAP Server: %s\n" % LDAP_On_Off
+    start_message += "FingerPrint hosts: %s\n" % Finger_On_Off
+    start_message += "Serving Executable via HTTP&WPAD: %s\n" % Exe_On_Off
+    start_message += "Always Serving a Specific File via HTTP&WPAD: %s\n" % Exec_Mode_On_Off
+    
+    logging.debug(start_message)
+
     try:
-        num_thrd = 1
         Is_FTP_On(FTP_On_Off)
         Is_HTTP_On(On_Off)
         Is_HTTPS_On(SSL_On_Off)
@@ -2648,13 +2626,6 @@ def main():
             t.setDaemon(True)
             t.start()
 
-        while num_thrd > 0:
-            time.sleep(1)
     except KeyboardInterrupt:
         exit()
 
-if __name__ == '__main__':
-    try:
-        main()
-    except:
-        raise
