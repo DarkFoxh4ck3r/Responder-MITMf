@@ -2564,27 +2564,27 @@ def start_responder(options, ip_address, config):
 
     AnalyzeICMPRedirect()
 
-    start_message = "Responder will redirect requests to: %s\n" % ip_address
-    start_message += "Challenge set: %s\n" % NumChal
-    start_message += "WPAD Proxy Server: %s\n" % WPAD_On_Off
-    start_message += "WPAD script loaded: %s\n" % WPAD_Script
-    start_message += "HTTP Server: %s\n" % On_Off
-    start_message += "HTTPS Server: %s\n" % SSL_On_Off
-    start_message += "SMB Server: %s\n" % SMB_On_Off
-    start_message += "SMB LM support: %s\n" % LM_On_Off
-    start_message += "Kerberos Server: %s\n" % Krb_On_Off
-    start_message += "SQL Server: %s\n" % SQL_On_Off
-    start_message += "FTP Server: %s\n" % FTP_On_Off
-    start_message += "IMAP Server: %s\n" % IMAP_On_Off
-    start_message += "POP3 Server: %s\n" % POP_On_Off
-    start_message += "SMTP Server: %s\n" % SMTP_On_Off
-    start_message += "DNS Server: %s\n" % DNS_On_Off
-    start_message += "LDAP Server: %s\n" % LDAP_On_Off
-    start_message += "FingerPrint hosts: %s\n" % Finger_On_Off
-    start_message += "Serving Executable via HTTP&WPAD: %s\n" % Exe_On_Off
-    start_message += "Always Serving a Specific File via HTTP&WPAD: %s\n" % Exec_Mode_On_Off
+    start_message = "|  |_ Responder will redirect requests to: %s\n" % ip_address
+    start_message += "|  |_ Challenge set: %s\n" % NumChal
+    start_message += "|  |_ WPAD Proxy Server: %s\n" % WPAD_On_Off
+    start_message += "|  |_ WPAD script loaded: %s\n" % WPAD_Script
+    start_message += "|  |_ HTTP Server: %s\n" % On_Off
+    start_message += "|  |_ HTTPS Server: %s\n" % SSL_On_Off
+    start_message += "|  |_ SMB Server: %s\n" % SMB_On_Off
+    start_message += "|  |_ SMB LM support: %s\n" % LM_On_Off
+    start_message += "|  |_ Kerberos Server: %s\n" % Krb_On_Off
+    start_message += "|  |_ SQL Server: %s\n" % SQL_On_Off
+    start_message += "|  |_ FTP Server: %s\n" % FTP_On_Off
+    start_message += "|  |_ IMAP Server: %s\n" % IMAP_On_Off
+    start_message += "|  |_ POP3 Server: %s\n" % POP_On_Off
+    start_message += "|  |_ SMTP Server: %s\n" % SMTP_On_Off
+    start_message += "|  |_ DNS Server: %s\n" % DNS_On_Off
+    start_message += "|  |_ LDAP Server: %s\n" % LDAP_On_Off
+    start_message += "|  |_ FingerPrint hosts: %s\n" % Finger_On_Off
+    start_message += "|  |_ Serving Executable via HTTP&WPAD: %s\n" % Exe_On_Off
+    start_message += "|  |_ Always Serving a Specific File via HTTP&WPAD: %s\n" % Exec_Mode_On_Off
     
-    logging.debug(start_message)
+    print start_message
 
     try:
         Is_FTP_On(FTP_On_Off)
