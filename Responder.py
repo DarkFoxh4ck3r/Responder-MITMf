@@ -2452,7 +2452,7 @@ class ResponderMITMf():
 		global Finger_On_Off; Finger_On_Off = options.Finger
 		global Verbose; Verbose = True
 		global Force_WPAD_Auth; Force_WPAD_Auth = options.Force_WPAD_Auth
-		global AnalyzeMode; AnalyzeMode = options.Analyse
+		global AnalyzeMode; AnalyzeMode = options.Analyze
 		global INTERFACE; INTERFACE = "Not set"
 		global BIND_TO_Interface; BIND_TO_Interface = "ALL" 
 
